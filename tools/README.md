@@ -110,7 +110,7 @@ python3 ~/.claude/sf-skills-install.py --diagnose
 For installing sf-skills into other agentic coding CLIs (OpenCode, Codex, Gemini, Cursor, etc.), use the `npx` method:
 
 ```bash
-npx skills add github:Jaganpro/sf-skills
+npx skills add Jaganpro/sf-skills
 ```
 
 See the [main README](../README.md) for details.
