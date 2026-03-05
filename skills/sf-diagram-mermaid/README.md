@@ -130,7 +130,7 @@ sequenceDiagram
 
 ## Contributing
 
-Contributions welcome! Please read [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
+Contributions welcome! Please read [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 ## Credits
 
@@ -140,4 +140,4 @@ Contributions welcome! Please read [CONTRIBUTING.md](../CONTRIBUTING.md) for gui
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file
+MIT License - See [LICENSE](../../LICENSE) file

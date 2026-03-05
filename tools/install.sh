@@ -24,7 +24,7 @@ DOCS_URL="https://github.com/Jaganpro/sf-skills"
 
 # Requirements
 MIN_PYTHON_MAJOR=3
-MIN_PYTHON_MINOR=12
+MIN_PYTHON_MINOR=10
 MIN_JAVA_VERSION=11
 MIN_NODE_VERSION=18
 

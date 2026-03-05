@@ -6,45 +6,57 @@ This directory contains the centralized hook system for sf-skills, providing int
 
 ```
 shared/hooks/
-├── skills-registry.json         # Single source of truth for all skill metadata
+├── skills-registry.json              # Single source of truth for all skill metadata
 ├── scripts/
-│   ├── guardrails.py            # PreToolUse hook (block/auto-fix dangerous operations)
-│   └── llm-eval.py              # LLM-powered semantic evaluation (Haiku)
+│   ├── guardrails.py                 # PreToolUse hook (block/warn dangerous operations)
+│   ├── validator-dispatcher.py       # PostToolUse hook (routes to skill-specific validators)
+│   ├── llm-eval.py                   # LLM-powered semantic evaluation (Haiku)
+│   ├── session-init.py               # Session initialization hook
+│   ├── lsp-prewarm.py                # LSP server pre-warming
+│   ├── org-preflight.py              # Org connectivity preflight check
+│   ├── api-version-check.py          # API version validation
+│   ├── naming_validator.py           # Naming convention enforcement
+│   ├── security_validator.py         # Security pattern detection
+│   └── stdin_utils.py               # Shared stdin reading utility
 ├── docs/
-│   ├── hook-lifecycle-diagram.md    # Visual lifecycle diagram with all SF-Skills hooks
-│   └── hooks-frontmatter-schema.md  # Hook configuration format
-└── README.md                    # This file
+│   ├── hook-lifecycle-diagram.md     # Visual lifecycle diagram with all SF-Skills hooks
+│   └── hooks-frontmatter-schema.md   # Hook configuration format (legacy reference)
+└── README.md                         # This file
 ```
 
 ## Architecture v5.0.0
 
 ### Proactive vs Reactive Hooks
 
-The modernized architecture shifts from **reactive** (catch issues after) to **proactive** (prevent before + auto-fix):
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ PROACTIVE LAYER (NEW)                                                   │
+│ PROACTIVE LAYER                                                         │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  User Request → PreToolUse Hook → Block or Modify → Tool Executes       │
+│  User Request → PreToolUse Hook → Block or Warn → Tool Executes         │
 │                       ↓                                                 │
 │                 guardrails.py                                           │
 │                       ↓                                                 │
 │        ┌─────────────────────────────────┐                              │
-│        │ CRITICAL: Block dangerous DML   │                              │
-│        │ HIGH: Auto-fix unbounded SOQL   │                              │
-│        │ MEDIUM: Warn on hardcoded IDs   │                              │
+│        │ CRITICAL: Block dangerous DML   │  (6 patterns)                │
+│        │ HIGH: (empty — see note below)  │                              │
+│        │ MEDIUM: Warn on anti-patterns   │  (4 patterns)                │
 │        └─────────────────────────────────┘                              │
 │                                                                         │
 ├─────────────────────────────────────────────────────────────────────────┤
-│ REACTIVE LAYER (ENHANCED)                                               │
+│ REACTIVE LAYER                                                          │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
 │  Tool Executes → PostToolUse Hook → Validate                            │
 │                        ↓                                                │
-│              skill-specific                                             │
-│               validators                                                │
+│              validator-dispatcher.py                                     │
+│                        ↓                                                │
+│        ┌─────────────────────────────────┐                              │
+│        │ Match file_path → run validator │                              │
+│        │ .cls → apex-lsp + scoring       │                              │
+│        │ .flow-meta.xml → flow-validate  │                              │
+│        │ .js (lwc/) → lwc-lsp + scoring  │                              │
+│        └─────────────────────────────────┘                              │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -53,39 +65,59 @@ The modernized architecture shifts from **reactive** (catch issues after) to **p
 
 ### 1. PreToolUse (Guardrails)
 
-**Purpose:** Block dangerous operations before execution, or auto-fix common issues.
+**Purpose:** Block dangerous operations before execution or warn on anti-patterns.
 
 **Location:** `scripts/guardrails.py`
 
 **Severity Levels:**
 
-| Severity | Action | Examples |
-|----------|--------|----------|
-| CRITICAL | Block | DELETE without WHERE, UPDATE without WHERE, hardcoded credentials |
-| HIGH | Auto-fix | Unbounded SOQL → add LIMIT, production deploy → add --dry-run |
-| MEDIUM | Warn | Hardcoded Salesforce IDs, deprecated API usage |
+| Severity | Action | Count | Examples |
+|----------|--------|-------|----------|
+| CRITICAL | Block | 6 patterns | DELETE without WHERE, UPDATE without WHERE, hardcoded credentials, production deploy without --dry-run, force push to main, DROP TABLE |
+| HIGH | (empty) | 0 | Was unbounded SOQL auto-fix — removed because regex cannot reliably parse SOQL inside shell-quoted strings with pipes. The sf-soql skill handles LIMIT enforcement instead. |
+| MEDIUM | Warn | 4 patterns | Hardcoded Salesforce IDs, deprecated `sfdx` usage, old API versions (<v56), SOQL without USER_MODE |
 
 **How it works:**
 ```python
-# Returns JSON to block or modify tool input
+# Returns JSON to block or warn
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",        # or "allow"
     "permissionDecisionReason": "DELETE without WHERE detected",
-    "updatedInput": {                    # For auto-fix (optional)
-      "command": "sf data query --query 'SELECT Id FROM Account LIMIT 200'"
-    }
+    "additionalContext": "..."           # Warnings (for MEDIUM)
   }
 }
 ```
 
-### 2. PostToolUse (Validation)
+### 2. PostToolUse (Validator Dispatcher)
 
-**Purpose:** Validate tool output after execution.
+**Purpose:** Route Write/Edit operations to skill-specific validators based on file patterns.
 
-**Components:**
-- **Skill-specific validators:** Located in each skill's `hooks/scripts/` directory
+**Location:** `scripts/validator-dispatcher.py`
+
+**Architecture:** The dispatcher uses a centralized `VALIDATOR_REGISTRY` — a list of `(regex_pattern, skill_name, validator_path)` tuples. When a file is written or edited:
+
+1. Extract `file_path` from the hook's `tool_input`
+2. Match against all regex patterns in `VALIDATOR_REGISTRY`
+3. Execute matching validators sequentially (8s timeout per validator)
+4. Return combined validation output
+
+**Current Registry (15 entries across 7 skills):**
+
+| File Pattern | Skill | Validator |
+|-------------|-------|-----------|
+| `.agent` | sf-ai-agentscript | agentscript-syntax-validator.py |
+| `.cls` | sf-apex | apex-lsp-validate.py + post-tool-validate.py |
+| `.trigger` | sf-apex | apex-lsp-validate.py + post-tool-validate.py |
+| `.soql` | sf-soql | post-tool-validate.py |
+| `.flow-meta.xml` | sf-flow | post-tool-validate.py |
+| `/lwc/**/*.js` | sf-lwc | lwc-lsp-validate.py + post-tool-validate.py |
+| `/lwc/**/*.html` | sf-lwc | template_validator.py |
+| `.object-meta.xml` | sf-metadata | validate_metadata.py |
+| `.field-meta.xml` | sf-metadata | validate_metadata.py |
+| `.permissionset-meta.xml` | sf-metadata | validate_metadata.py |
+| `.namedCredential-meta.xml` | sf-integration | validate_integration.py |
 
 ### 3. LLM-Powered Hooks (Haiku)
 
@@ -100,69 +132,6 @@ The modernized architecture shifts from **reactive** (catch issues after) to **p
 
 ---
 
-## Frontmatter Hooks (SKILL.md)
-
-Skills now define their hooks directly in their `SKILL.md` YAML frontmatter instead of separate `hooks/hooks.json` files.
-
-### Standard Hook Pattern
-
-```yaml
----
-name: sf-apex
-description: >
-  Generates and reviews Salesforce Apex code...
-metadata:
-  version: "1.1.0"
-hooks:
-  PreToolUse:
-    - matcher: Bash
-      hooks:
-        - type: command
-          command: "python3 ${SHARED_HOOKS}/scripts/guardrails.py"
-          timeout: 5000
-  PostToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "python3 ${SKILL_HOOKS}/apex-lsp-validate.py"
-          timeout: 10000
----
-```
-
-### Path Variables
-
-| Variable | Resolves To |
-|----------|-------------|
-| `${SHARED_HOOKS}` | `shared/hooks/` directory |
-| `${SKILL_HOOKS}` | Skill's own `hooks/scripts/` directory |
-| `${CLAUDE_PLUGIN_ROOT}` | Root of the plugin/skill installation |
-
-### Migrated Skills (18 total)
-
-All skills have been migrated from `hooks/hooks.json` to frontmatter:
-
-| Skill | Version | Special Hooks |
-|-------|---------|---------------|
-| sf-apex | 1.1.0 | apex-lsp-validate.py |
-| sf-flow | 1.1.0 | flow-schema-validate.py |
-| sf-lwc | 1.1.0 | lwc-lsp-validate.py |
-| sf-metadata | 1.1.0 | post-write-validate.py |
-| sf-data | 1.1.0 | post-write-validate.py |
-| sf-testing | 1.1.0 | post-tool-validate.py |
-| sf-debug | 1.1.0 | parse-debug-log.py (Bash) |
-| sf-soql | 1.1.0 | post-tool-validate.py |
-| sf-deploy | 1.1.0 | post-write-validate.py |
-| sf-integration | 1.2.0 | suggest_credential_setup.py, validate_integration.py |
-| sf-connected-apps | 1.1.0 | (standard) |
-| sf-diagram-mermaid | 1.2.0 | (standard) |
-| sf-diagram-nanobananapro | 1.5.0 | (Bash matcher) |
-| sf-ai-agentscript | 1.4.0 | agentscript-syntax-validator.py |
-| sf-ai-agentforce | 2.0.0 | (standard) |
-| sf-ai-agentforce-testing | 1.1.0 | parse-agent-test-results.py (Bash) |
-| sf-permissions | 1.1.0 | (standard) |
-
----
-
 ## Skills Registry Schema (v5.0.0)
 
 ```json
@@ -174,36 +143,9 @@ All skills have been migrated from `hooks/hooks.json` to frontmatter:
       "severity": "CRITICAL",
       "action": "block",
       "message": "Destructive DML without WHERE clause detected"
-    },
-    "unbounded_soql": {
-      "patterns": ["SELECT .* FROM \\w+ (?!.*LIMIT)"],
-      "severity": "HIGH",
-      "action": "auto_fix",
-      "fix": "append LIMIT 200"
     }
   },
   "skills": { ... }
-}
-```
-
----
-
-## Global Hooks Configuration
-
-The project's `.claude/hooks.json` wires global hooks:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "Bash",
-      "hooks": [{
-        "type": "command",
-        "command": "python3 ./shared/hooks/scripts/guardrails.py",
-        "timeout": 5000
-      }]
-    }]
-  }
 }
 ```
 
@@ -223,24 +165,22 @@ The project's `.claude/hooks.json` wires global hooks:
 }
 ```
 
-### 2. Add hooks to SKILL.md frontmatter
+### 2. Add validator to VALIDATOR_REGISTRY
 
-```yaml
----
-name: sf-newskill
-description: >
-  Description here
-metadata:
-  version: "1.0.0"
-hooks:
-  PreToolUse:
-    - matcher: Bash
-      hooks:
-        - type: command
-          command: "python3 ${SHARED_HOOKS}/scripts/guardrails.py"
-          timeout: 5000
----
+If your skill needs PostToolUse validation, add entries to the `VALIDATOR_REGISTRY` list in `scripts/validator-dispatcher.py`:
+
+```python
+# In validator-dispatcher.py VALIDATOR_REGISTRY list:
+(
+    r"\.yourext$",              # File pattern regex
+    "sf-newskill",              # Skill name
+    "sf-newskill/hooks/scripts/your-validator.py"  # Validator path (relative to ~/.claude/skills/)
+),
 ```
+
+### 3. Create the validator script
+
+Place your validator at `skills/sf-newskill/hooks/scripts/your-validator.py`. It receives hook context via stdin (JSON) and should output validation results to stdout.
 
 ---
 
@@ -249,15 +189,15 @@ hooks:
 ### Why Proactive + Reactive?
 
 1. **Prevention is better than cure** - Block dangerous operations before damage
-2. **User experience** - Auto-fix common issues without user intervention
+2. **User experience** - Warn on common anti-patterns without blocking
 3. **Safety net** - PostToolUse catches issues that slip through
 
-### Why Frontmatter Hooks?
+### Why Centralized Dispatcher?
 
-1. **Self-contained skills** - Each skill owns its complete configuration
-2. **No file sprawl** - No separate `hooks/hooks.json` files
-3. **Easier maintenance** - Update skill config in one place
-4. **Better discoverability** - Hook config visible in skill documentation
+1. **No frontmatter parsing** - Validators route by file pattern, not SKILL.md YAML
+2. **Single configuration point** - All routing in one `VALIDATOR_REGISTRY` list
+3. **Predictable execution** - Sequential with per-validator timeout (8s)
+4. **Easy to extend** - Add a tuple to the registry, drop a validator script
 
 ### Why Advisory, Not Automatic?
 
@@ -268,7 +208,7 @@ hooks:
 
 ### Why Single Registry?
 
-1. **DRY** - No duplicate configuration across 18+ skills
+1. **DRY** - No duplicate configuration across 19+ skills
 2. **Consistency** - All skills use the same schema
 3. **Maintainability** - One place to update skill metadata
 4. **Discoverability** - Easy to see all skill relationships
@@ -279,24 +219,35 @@ hooks:
 
 ### Hook Not Firing
 
-1. Check path variables resolve correctly:
+1. Verify the hook scripts exist and are executable:
    ```bash
-   echo $SHARED_HOOKS
-   echo $SKILL_HOOKS
+   /bin/ls -la shared/hooks/scripts/guardrails.py
+   /bin/ls -la shared/hooks/scripts/validator-dispatcher.py
    ```
 
-2. Verify YAML frontmatter syntax:
+2. Check that the file pattern matches in `VALIDATOR_REGISTRY`:
    ```bash
-   python3 -c "import yaml; yaml.safe_load(open('SKILL.md').read().split('---')[1])"
+   python3 -c "
+   import re
+   pattern = r'\.cls$'
+   print(bool(re.search(pattern, 'MyClass.cls')))
+   "
    ```
 
-3. Check hook timeout (default 5000ms may be too short for some operations)
+3. Check validator timeout — each validator has 8s; slow LSP servers may need tuning
 
 ### Guardrail Too Aggressive
 
-1. Check `skills-registry.json` guardrails section
-2. Adjust severity from CRITICAL to HIGH or MEDIUM
-3. Add pattern exception if needed
+1. Check `CRITICAL_PATTERNS` in `scripts/guardrails.py`
+2. Adjust severity or add exceptions for your use case
+3. Output-only commands (`echo`, `printf`, heredocs) are automatically excluded
+
+### Validator Not Found
+
+The dispatcher looks for validators at `~/.claude/skills/<skill>/<path>`. Verify:
+```bash
+/bin/ls ~/.claude/skills/sf-apex/hooks/scripts/
+```
 
 ---
 

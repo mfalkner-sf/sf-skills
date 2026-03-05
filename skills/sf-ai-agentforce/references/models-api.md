@@ -577,7 +577,6 @@ subscribeToAICompletion() {
 ## Related Documentation
 
 - [Prompt Templates](prompt-templates.md) - Using AI via metadata
-- [Actions Reference](actions-reference.md) - Agent actions with AI
 - [Salesforce AI Documentation](https://developer.salesforce.com/docs/einstein/genai/overview)
 
 ---

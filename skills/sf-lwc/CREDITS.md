@@ -60,4 +60,4 @@ Key contributions:
 
 ## License
 
-MIT License - See [LICENSE](../LICENSE)
+MIT License - See [LICENSE](../../LICENSE)

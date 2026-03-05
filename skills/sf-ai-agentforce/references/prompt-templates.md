@@ -860,6 +860,4 @@ sf project deploy start -m "PromptTemplate:*"
 
 ## Related Documentation
 
-- [Actions Reference](actions-reference.md) - Action configuration and metadata
-- [Agent Script Reference](agent-script-reference.md) - Complete syntax guide
 - [Einstein Prompt Builder (Salesforce Help)](https://help.salesforce.com/s/articleView?id=sf.prompt_builder.htm)

@@ -31,7 +31,7 @@ Update Detection:
     - Legacy upgrade: Enables content tracking on older installs
 
 Requirements:
-    - Python 3.8+ (standard library only)
+    - Python 3.10+ (standard library only)
     - Claude Code installed (~/.claude/ directory exists)
 """
 

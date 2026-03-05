@@ -433,4 +433,4 @@ Boundary test: "If you removed all emoji, would information be lost?" Functional
 
 ## Change History
 
-See [CHANGELOG.md](../../CHANGELOG.md) for the full version history.
+See [commit history](https://github.com/Jaganpro/sf-skills/commits/main) for the full version history.

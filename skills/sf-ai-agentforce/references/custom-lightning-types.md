@@ -719,10 +719,6 @@ sf project deploy start -m "LightningTypeBundle:CustomerAddress,GenAiFunction:Co
 
 ## Related Documentation
 
-- [Actions Reference](actions-reference.md) - GenAiFunction metadata
-- [Agent Script Reference](agent-script-reference.md) - Action syntax
-- [Patterns & Practices](patterns-and-practices.md) - Agent design patterns
-
 ---
 
 ## Source
