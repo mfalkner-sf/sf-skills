@@ -247,7 +247,7 @@ Level 2: ACTION INVOCATION (in `reasoning.actions:` block)
 
 ### Phase 3: Validation (LSP + CLI)
 
-> **AUTOMATIC**: validation runs on every Write/Edit to `.agent` files — catches mixed tabs/spaces, invalid Service-vs-Employee `default_agent_user` usage, invalid `@utils.transition` metadata, empty-list expression gotchas, bare `run` calls, common variable/reference errors, and now **org-aware Service Agent user checks** against the configured validation org. Fix errors, re-save, repeat until clean.
+> **AUTOMATIC**: validation runs on every Write/Edit to `.agent` files — catches mixed tabs/spaces, invalid Service-vs-Employee `default_agent_user` usage, invalid `@utils.transition` metadata, empty-list expression gotchas, bare `run` calls, common variable/reference errors, and now **org-aware Service Agent checks** against the configured validation org: valid Einstein Agent User, required `AgentforceServiceAgentUser` assignment, expected `{AgentName}_Access` assignment for target-backed actions, Apex `<classAccesses>` coverage, and Flow target existence/activation. Fix errors, re-save, repeat until clean.
 
 ```bash
 # CLI Validation (before deploy):
@@ -269,6 +269,12 @@ For Service Agents, confirm all four before publish:
 - `Profile.Name = 'Einstein Agent User'`
 
 The write/edit validator now enforces this automatically against the configured validation org (`metadata.validation_org` in this skill, or `AGENTSCRIPT_VALIDATION_ORG` / `SF_TARGET_ORG` env override). Employee Agents are exempt and instead must omit `default_agent_user` entirely.
+
+For Service Agents with targets, the validator also checks:
+- `AgentforceServiceAgentUser` permission set/group assignment on the agent user
+- custom `{AgentName}_Access` assignment when target-backed actions are present
+- `apex://` targets are covered by `<classAccesses>` in that custom permission set
+- `flow://` targets exist and have an active version in the validation org
 
 **Native pre-publish checklist:**
 1. `sf agent validate authoring-bundle --api-name MyAgent -o TARGET_ORG --json`

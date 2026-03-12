@@ -103,6 +103,7 @@ class AgentScriptValidator:
         self.action_input_required_flags: List[Tuple[int, str, str]] = []
         self.validation_org = self._resolve_validation_org()
         self._user_query_cache: Dict[str, Dict] = {}
+        self._query_cache: Dict[str, Dict] = {}
 
         self._parse_structure()
 
@@ -132,12 +133,14 @@ class AgentScriptValidator:
         self._check_is_required_advisories()
         self._check_employee_agent_gotchas()
         self._check_service_agent_user_in_org()
+        self._check_service_agent_target_permissions()
 
         return {
             "success": len(self.errors) == 0,
             "errors": self.errors,
             "warnings": self.warnings,
             "file_path": self.file_path,
+            "checklist": self._build_checklist(),
         }
 
     @staticmethod
@@ -186,20 +189,14 @@ class AgentScriptValidator:
             return "AgentforceServiceAgent"
         return None
 
-    def _query_user_in_org(self, username: str) -> Dict:
-        if username in self._user_query_cache:
-            return self._user_query_cache[username]
+    def _run_soql_query(self, soql: str) -> Dict:
+        if soql in self._query_cache:
+            return self._query_cache[soql]
 
         if not self.validation_org:
             result = {"ok": False, "reason": "no_validation_org"}
-            self._user_query_cache[username] = result
+            self._query_cache[soql] = result
             return result
-
-        escaped = username.replace("'", "\\'")
-        soql = (
-            "SELECT Username, IsActive, UserType, Profile.Name "
-            f"FROM User WHERE Username = '{escaped}' LIMIT 1"
-        )
 
         try:
             proc = subprocess.run(
@@ -210,23 +207,43 @@ class AgentScriptValidator:
             )
         except Exception as exc:
             result = {"ok": False, "reason": "query_failed", "detail": str(exc)}
-            self._user_query_cache[username] = result
+            self._query_cache[soql] = result
             return result
 
         if proc.returncode != 0:
             detail = (proc.stdout or proc.stderr or "sf data query failed").strip()
             result = {"ok": False, "reason": "query_failed", "detail": detail}
-            self._user_query_cache[username] = result
+            self._query_cache[soql] = result
             return result
 
         try:
             payload = json.loads(proc.stdout or "{}")
         except Exception:
             result = {"ok": False, "reason": "query_failed", "detail": "Could not parse sf data query JSON output."}
+            self._query_cache[soql] = result
+            return result
+
+        result = {"ok": True, "payload": payload, "records": ((payload.get("result") or {}).get("records") or []) if isinstance(payload, dict) else []}
+        self._query_cache[soql] = result
+        return result
+
+    def _query_user_in_org(self, username: str) -> Dict:
+        if username in self._user_query_cache:
+            return self._user_query_cache[username]
+
+        escaped = username.replace("'", "\\'")
+        soql = (
+            "SELECT Username, IsActive, UserType, Profile.Name "
+            f"FROM User WHERE Username = '{escaped}' LIMIT 1"
+        )
+
+        query = self._run_soql_query(soql)
+        if not query.get("ok"):
+            result = {"ok": False, "reason": query.get("reason"), "detail": query.get("detail")}
             self._user_query_cache[username] = result
             return result
 
-        records = ((payload.get("result") or {}).get("records") or []) if isinstance(payload, dict) else []
+        records = query.get("records") or []
         if not records:
             result = {"ok": False, "reason": "missing"}
             self._user_query_cache[username] = result
@@ -248,6 +265,89 @@ class AgentScriptValidator:
 
         self._user_query_cache[username] = result
         return result
+
+    def _query_permission_set_assignments(self, username: str) -> Dict:
+        escaped = username.replace("'", "\\'")
+        soql = (
+            "SELECT PermissionSetId, PermissionSet.Name "
+            f"FROM PermissionSetAssignment WHERE Assignee.Username = '{escaped}'"
+        )
+        return self._run_soql_query(soql)
+
+    def _query_permission_set(self, permset_name: str) -> Dict:
+        escaped = permset_name.replace("'", "\\'")
+        soql = f"SELECT Id, Name FROM PermissionSet WHERE Name = '{escaped}' LIMIT 1"
+        return self._run_soql_query(soql)
+
+    def _query_apex_classes(self, class_names: List[str]) -> Dict[str, Dict]:
+        names = sorted({name for name in class_names if name})
+        if not names:
+            return {}
+        quoted = ", ".join(f"'{name.replace("'", "\\'")}'" for name in names)
+        soql = f"SELECT Id, Name FROM ApexClass WHERE Name IN ({quoted})"
+        query = self._run_soql_query(soql)
+        if not query.get("ok"):
+            return {}
+        return {record.get('Name'): record for record in (query.get('records') or [])}
+
+    def _query_setup_entity_access(self, parent_id: str, setup_entity_ids: List[str], setup_entity_type: str = "ApexClass") -> Dict[str, Dict]:
+        ids = sorted({entity_id for entity_id in setup_entity_ids if entity_id})
+        if not ids:
+            return {}
+        quoted = ", ".join(f"'{entity_id}'" for entity_id in ids)
+        soql = (
+            "SELECT SetupEntityId, SetupEntityType "
+            f"FROM SetupEntityAccess WHERE ParentId = '{parent_id}' "
+            f"AND SetupEntityType = '{setup_entity_type}' AND SetupEntityId IN ({quoted})"
+        )
+        query = self._run_soql_query(soql)
+        if not query.get("ok"):
+            return {}
+        return {record.get('SetupEntityId'): record for record in (query.get('records') or [])}
+
+    def _query_active_flows(self, flow_names: List[str]) -> Dict[str, Dict]:
+        names = sorted({name for name in flow_names if name})
+        if not names:
+            return {}
+        quoted = ", ".join(f"'{name.replace("'", "\\'")}'" for name in names)
+        soql = f"SELECT ApiName, ActiveVersionId FROM FlowDefinitionView WHERE ApiName IN ({quoted})"
+        query = self._run_soql_query(soql)
+        if not query.get("ok"):
+            return {}
+        return {record.get('ApiName'): record for record in (query.get('records') or [])}
+
+    def _agent_identifier(self) -> Optional[str]:
+        if "developer_name" in self.config_fields:
+            return self.config_fields["developer_name"][0]
+        if "agent_name" in self.config_fields:
+            return self.config_fields["agent_name"][0]
+        return None
+
+    def _collect_targets(self) -> Dict[str, List[Tuple[str, int, str]]]:
+        apex_targets: List[Tuple[str, int, str]] = []
+        flow_targets: List[Tuple[str, int, str]] = []
+        other_targets: List[Tuple[str, int, str]] = []
+
+        for action in self.action_definitions:
+            target = action.get("target")
+            if not target:
+                continue
+            line = action.get("target_line") or action.get("line") or 1
+            if target.startswith("apex://"):
+                apex_ref = target[len("apex://"):].strip()
+                apex_class_name = apex_ref.split(".", 1)[0]
+                apex_targets.append((apex_class_name, line, target))
+            elif target.startswith("flow://"):
+                flow_name = target[len("flow://"):].strip()
+                flow_targets.append((flow_name, line, target))
+            else:
+                other_targets.append((target, line, target))
+
+        return {
+            "apex": apex_targets,
+            "flow": flow_targets,
+            "other": other_targets,
+        }
 
     def _add_error(self, line_num: int, message: str):
         self.errors.append((line_num, "error", message))
@@ -854,34 +954,205 @@ class AgentScriptValidator:
                 f"Could not verify default_agent_user '{username}' against org '{self.validation_org}'. sf data query failed: {detail}",
             )
 
+    def _check_service_agent_target_permissions(self):
+        default_agent_user = self.config_fields.get("default_agent_user")
+        effective_agent_type = self._effective_agent_type()
+        if effective_agent_type != "AgentforceServiceAgent" or not default_agent_user:
+            return
+
+        username, user_line = default_agent_user
+        if not self.validation_org:
+            return
+
+        user_result = self._query_user_in_org(username)
+        if not user_result.get("ok"):
+            return
+
+        targets = self._collect_targets()
+        apex_targets = targets["apex"]
+        flow_targets = targets["flow"]
+        other_targets = targets["other"]
+        if not apex_targets and not flow_targets and not other_targets:
+            return
+
+        assignments = self._query_permission_set_assignments(username)
+        if not assignments.get("ok"):
+            detail = assignments.get("detail", "sf data query failed")
+            self._add_warning(
+                user_line,
+                f"Could not verify permission set assignments for Service Agent user '{username}' in '{self.validation_org}'. sf data query failed: {detail}",
+            )
+            return
+
+        assigned_names = {((record.get("PermissionSet") or {}).get("Name")) for record in (assignments.get("records") or [])}
+        assigned_names.discard(None)
+
+        if not any(name == "AgentforceServiceAgentUser" or "AgentforceServiceAgentUser" in name for name in assigned_names):
+            self._add_error(
+                user_line,
+                f"Service Agent user '{username}' is missing the required AgentforceServiceAgentUser permission set/group assignment in '{self.validation_org}'. Assign it before publish.",
+            )
+
+        agent_identifier = self._agent_identifier()
+        custom_permset_name = f"{agent_identifier}_Access" if agent_identifier else None
+        custom_assigned = bool(custom_permset_name and custom_permset_name in assigned_names)
+
+        if apex_targets and not custom_assigned:
+            first_line = apex_targets[0][1]
+            self._add_error(
+                first_line,
+                f"This Service Agent uses apex:// targets but user '{username}' is not assigned custom permission set '{custom_permset_name}'. Create/assign '{custom_permset_name}' with <classAccesses> for every Apex class target.",
+            )
+
+        if flow_targets and not custom_assigned:
+            first_line = flow_targets[0][1]
+            self._add_warning(
+                first_line,
+                f"This Service Agent uses flow:// targets but user '{username}' is not assigned custom permission set '{custom_permset_name}'. Flow internals still need object/field/Apex access; verify permissions explicitly.",
+            )
+
+        if custom_assigned and custom_permset_name:
+            permset_query = self._query_permission_set(custom_permset_name)
+            permset_records = permset_query.get("records") if permset_query.get("ok") else []
+            permset_id = permset_records[0].get("Id") if permset_records else None
+
+            if apex_targets and permset_id:
+                apex_names = [name for name, _, _ in apex_targets]
+                apex_by_name = self._query_apex_classes(apex_names)
+                if apex_by_name:
+                    access_by_id = self._query_setup_entity_access(permset_id, [record.get("Id") for record in apex_by_name.values()], "ApexClass")
+                    for apex_name, line, raw_target in apex_targets:
+                        apex_record = apex_by_name.get(apex_name)
+                        if not apex_record:
+                            self._add_warning(
+                                line,
+                                f"Could not verify Apex target '{raw_target}' in org '{self.validation_org}'. If this is namespaced or packaged, verify '{custom_permset_name}' includes explicit class access for it.",
+                            )
+                            continue
+                        if apex_record.get("Id") not in access_by_id:
+                            self._add_error(
+                                line,
+                                f"Apex target '{raw_target}' is not granted in permission set '{custom_permset_name}'. Add <classAccesses><apexClass>{apex_name}</apexClass><enabled>true</enabled></classAccesses> and reassign if needed.",
+                            )
+
+            elif apex_targets and not permset_id:
+                first_line = apex_targets[0][1]
+                self._add_warning(
+                    first_line,
+                    f"User '{username}' appears assigned to '{custom_permset_name}', but the permission set record could not be resolved in '{self.validation_org}'. Verify the permission set exists and includes class access entries.",
+                )
+
+        active_flows = self._query_active_flows([name for name, _, _ in flow_targets]) if flow_targets else {}
+        for flow_name, line, raw_target in flow_targets:
+            record = active_flows.get(flow_name)
+            if not record:
+                self._add_error(
+                    line,
+                    f"Flow target '{raw_target}' was not found in org '{self.validation_org}'. Deploy the FlowDefinition before publish.",
+                )
+                continue
+            if not record.get("ActiveVersionId"):
+                self._add_error(
+                    line,
+                    f"Flow target '{raw_target}' exists in '{self.validation_org}' but has no active version. Activate the Flow before publish.",
+                )
+
+        for raw_target, line, _ in other_targets:
+            self._add_warning(
+                line,
+                f"Target '{raw_target}' uses a protocol the validator cannot permission-check automatically. Verify the Service Agent user '{username}' has all required access before publish.",
+            )
+
+    def _issue_texts(self, severity: str) -> List[str]:
+        issues = self.errors if severity == "error" else self.warnings
+        return [message for _, _, message in issues]
+
+    def _checklist_entry(self, label: str, error_terms: List[str], warning_terms: Optional[List[str]] = None, success_detail: str = "No issues found.", na_detail: Optional[str] = None, applicable: bool = True) -> Dict[str, str]:
+        if not applicable:
+            return {"status": "info", "icon": "ℹ️", "label": label, "detail": na_detail or "Not applicable."}
+
+        warning_terms = warning_terms or error_terms
+        error_matches = [msg for msg in self._issue_texts("error") if any(term in msg for term in error_terms)]
+        if error_matches:
+            return {"status": "error", "icon": "❌", "label": label, "detail": error_matches[0]}
+
+        warning_matches = [msg for msg in self._issue_texts("warning") if any(term in msg for term in warning_terms)]
+        if warning_matches:
+            return {"status": "warning", "icon": "⚠️", "label": label, "detail": warning_matches[0]}
+
+        return {"status": "ok", "icon": "✅", "label": label, "detail": success_detail}
+
+    def _build_checklist(self) -> List[Dict[str, str]]:
+        effective_agent_type = self._effective_agent_type()
+        targets = self._collect_targets()
+        has_targets = bool(targets["apex"] or targets["flow"] or targets["other"])
+        service_agent = effective_agent_type == "AgentforceServiceAgent"
+        employee_agent = effective_agent_type == "AgentforceEmployeeAgent"
+
+        return [
+            self._checklist_entry("Indentation consistency", ["Mixed tabs and spaces"], success_detail="Tabs/spaces usage is consistent."),
+            self._checklist_entry("Boolean capitalization", ["Boolean must be capitalized"], success_detail="Boolean literals use True/False correctly."),
+            self._checklist_entry("Required top-level blocks", ["Missing required blocks"], success_detail="config, system, and start_agent blocks are present."),
+            self._checklist_entry("Config field completeness", ["Missing agent identifier", "Missing agent description", "Invalid agent_type"], ["Missing 'agent_type'."], success_detail="Agent identifier, description, and agent_type shape look valid."),
+            self._checklist_entry("Service vs Employee agent semantics", ["Service Agents require 'default_agent_user'", "Employee Agents must NOT include 'default_agent_user'", "Missing both 'agent_type' and 'default_agent_user'"], ["Missing 'agent_type'. This compiles when 'default_agent_user' is present"], success_detail="Agent type and default_agent_user relationship is valid."),
+            self._checklist_entry("Service Agent user exists in validation org", ["Service Agent default_agent_user"], ["Could not run org-aware default_agent_user validation", "Could not verify default_agent_user"], success_detail="default_agent_user resolves to an active Einstein Agent User.", na_detail="Not applicable to Employee Agents or agents without default_agent_user.", applicable=service_agent and bool(self.config_fields.get("default_agent_user"))),
+            self._checklist_entry("Required Service Agent permission assignments", ["AgentforceServiceAgentUser permission set/group assignment", "not assigned custom permission set"], ["not assigned custom permission set"], success_detail="Required system/custom permission assignments are present for the detected targets.", na_detail="No Service Agent target-backed actions require permission assignment checks.", applicable=service_agent and has_targets),
+            self._checklist_entry("Apex target permission coverage", ["Apex target '", "could not verify Apex target", "not assigned custom permission set"], ["could not verify Apex target", "not assigned custom permission set"], success_detail="All apex:// targets are covered by the assigned custom permission set.", na_detail="No apex:// targets detected.", applicable=service_agent and bool(targets["apex"])),
+            self._checklist_entry("Flow target readiness", ["Flow target '"] , ["Flow target '", "uses flow:// targets but user"], success_detail="All flow:// targets exist and have an active version.", na_detail="No flow:// targets detected.", applicable=bool(targets["flow"])),
+            self._checklist_entry("Other target protocol review", ["cannot permission-check automatically"], success_detail="All detected target protocols are fully supported by automatic checks.", na_detail="No non-apex/non-flow targets detected.", applicable=bool(targets["other"])),
+            self._checklist_entry("Exactly one start_agent", ["Missing start_agent block", "Exactly one start_agent is allowed"], success_detail="Exactly one start_agent block is defined."),
+            self._checklist_entry("Topic/start_agent naming collisions", ["Name collision risk"], success_detail="No topic/start_agent API-name collisions detected."),
+            self._checklist_entry("Naming rule compliance", ["Invalid developer_name", "Invalid agent_name", "Invalid topic name", "Invalid start_agent name", "Invalid variable name"], success_detail="Names follow Agent Script naming rules."),
+            self._checklist_entry("Invalid connections wrapper", ["Invalid top-level block 'connections:'"], success_detail="No invalid plural connections wrapper detected."),
+            self._checklist_entry("Variable safety", ["Variable cannot be both 'mutable' AND 'linked'", "Reference to undefined variable"], ["may conflict with platform context mappings"], success_detail="Variable declarations and executable references look consistent."),
+            self._checklist_entry("Topic references", ["Reference to undefined topic"], success_detail="All @topic references resolve to defined topics."),
+            self._checklist_entry("Description formatting", ["description appears multiline"], success_detail="Topic/start_agent descriptions stay on a single safe line."),
+            self._checklist_entry("Lifecycle hook formatting", ["should contain direct content, not an 'instructions:' wrapper"], success_detail="before_reasoning/after_reasoning blocks use direct content."),
+            self._checklist_entry("Collection / set gotchas", ["Empty list literal '[]'", "Resetting with 'set ... = []'"], ["Using @inputs in set"], success_detail="No known collection/set gotchas detected."),
+            self._checklist_entry("Action invocation syntax", ["Bare action name"], success_detail="run statements reference @actions explicitly."),
+            self._checklist_entry("Utility action metadata", ["is not valid on @utils.transition actions"], success_detail="@utils.transition metadata usage is valid."),
+            self._checklist_entry("Prompt output displayability", ["is_displayable: True"], success_detail="Prompt outputs avoid risky displayability settings.", na_detail="No prompt targets detected.", applicable=any((action.get("target") or "").startswith(("prompt://", "generatePromptResponse://")) for action in self.action_definitions)),
+            self._checklist_entry("Action I/O date typing", ["uses 'date' in action"], success_detail="No risky 'date' action I/O declarations detected."),
+            self._checklist_entry("Planner-required input hints", ["uses 'is_required: True'"], success_detail="Required inputs are either guarded or not using the risky planner-only hint."),
+            self._checklist_entry("Employee-agent-only / service-agent-only patterns", ["Employee Agents typically should not include 'connection messaging:'", "Messaging-linked variables are usually unnecessary for Employee Agents"], success_detail="No agent-type-specific Messaging configuration issues detected.", na_detail="Not applicable outside Employee Agent checks.", applicable=employee_agent),
+        ]
+
 
 def format_output(result: dict) -> str:
     """Format validation results for Claude."""
     lines = []
     file_name = Path(result["file_path"]).name
+    checklist = result.get("checklist") or []
 
-    if result["success"] and not result["warnings"]:
+    if result["success"]:
         lines.append(f"✅ Agent Script Validation Passed: {file_name}")
-        lines.append("   • Core syntax checks: OK")
-        lines.append("   • Config semantics: OK")
-        lines.append("   • Topic references: OK")
-        return "\n".join(lines)
+    else:
+        lines.append(f"❌ Agent Script validation found blocking issues in {file_name}")
+
+    if result["warnings"] and result["success"]:
+        lines.append(f"⚠️ {len(result['warnings'])} warning(s) need review")
+
+    lines.append("")
+    lines.append("Validation checklist")
+    lines.append("--------------------")
+    for item in checklist:
+        lines.append(f"{item['icon']} {item['label']} — {item['detail']}")
 
     if result["errors"]:
-        lines.append(f"❌ Agent Script validation errors in {file_name}:")
         lines.append("")
+        lines.append("Blocking issues")
+        lines.append("---------------")
         for line_num, severity, message in result["errors"]:
-            lines.append(f"  Line {line_num}: {message}")
+            lines.append(f"❌ Line {line_num}: {message}")
         lines.append("")
-        lines.append("Fix these errors before deployment.")
+        lines.append("Fix the blocking issues above before validate/preview/publish.")
 
     if result["warnings"]:
-        if lines:
-            lines.append("")
-        lines.append(f"⚠️ Agent Script warnings in {file_name}:")
         lines.append("")
+        lines.append("Warnings")
+        lines.append("--------")
         for line_num, severity, message in result["warnings"]:
-            lines.append(f"  Line {line_num}: {message}")
+            lines.append(f"⚠️ Line {line_num}: {message}")
 
     return "\n".join(lines)
 
