@@ -284,6 +284,21 @@ for sid in session_ids:
 
 ---
 
+## Builder Debugging Views
+
+The Agentforce Builder provides 4 views for real-time trace analysis:
+
+| View | Purpose | Best For |
+|------|---------|----------|
+| Interaction Details | Turn-by-turn message flow | Understanding conversation flow |
+| Trace Waterfall | Timeline of all steps with duration bars | Performance bottlenecks |
+| Variable State | State snapshot at each step | Debugging conditional logic |
+| Script View | Side-by-side script + execution highlight | Mapping script to trace |
+
+**Tip**: Start with **Trace Waterfall** to identify slow steps, then switch to **Variable State** to inspect the data flowing through those steps. Use **Script View** when debugging Agent Script agents to see exactly which DSL line triggered each trace event.
+
+---
+
 ## See Also
 
 - [Analysis Examples](analysis-examples.md) - Aggregate analysis

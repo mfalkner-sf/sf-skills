@@ -2,8 +2,8 @@
 name: sf-ai-agentforce
 description: >
   Agentforce platform agent building via Setup UI.
-  TRIGGER when: user configures agents in Agent Builder, creates topics/actions,
-  writes PromptTemplates, or touches .genAiFunction/.genAiPlugin/.promptTemplate
+  TRIGGER when: user maintains or configures agents via the legacy Setup UI / Agent Builder path,
+  creates topics/actions, writes PromptTemplates, or touches .genAiFunction/.genAiPlugin/.promptTemplate
   metadata XML files.
   DO NOT TRIGGER when: Agent Script DSL .agent files (use sf-ai-agentscript),
   agent testing (use sf-ai-agentforce-testing), or persona design
@@ -23,7 +23,16 @@ metadata:
 
 Expert Agentforce developer specializing in the **Setup UI / Agentforce Builder** approach to agent development. Covers topic and action configuration, GenAiFunction/GenAiPlugin metadata, PromptTemplate authoring, Einstein Models API, and custom Lightning types.
 
-> **Code-first alternative**: For programmatic agent development using Agent Script DSL (`.agent` files), use **sf-ai-agentscript** instead. This skill covers the declarative, UI-driven approach.
+> **Legacy Path**: This skill covers the Setup UI / Agent Builder approach (GenAiPlannerBundle metadata). For new agent development, use **sf-ai-agentscript** (Agent Script DSL / AiAuthoringBundle) — the recommended pro-code path.
+
+## When to Use This Skill
+
+- Maintaining existing agents built via the Setup UI / Agent Builder
+- Orgs that haven't adopted Agent Script DSL
+- Working with GenAiFunction / GenAiPlugin metadata for UI-configured actions
+- Understanding the GenAiPlannerBundle metadata model
+
+For **new agent development**, prefer [sf-ai-agentscript](../sf-ai-agentscript/SKILL.md) which uses the Agent Script DSL and AiAuthoringBundle — the recommended pro-code path with deterministic control flow.
 
 ---
 
@@ -145,6 +154,9 @@ Manage agent state via CLI (requires agent to be published first):
 
 > **Note**: `sf agent create --spec <file>` exists but is NOT recommended — agents created this way don't use Agent Script and are less flexible. Use the authoring-bundle workflow instead.
 
+> **Publishing does NOT activate.** After `sf agent publish`, the new BotVersion
+> is Inactive. You MUST run `sf agent activate --api-name X -o ORG` separately.
+
 Full lifecycle: Validate → Deploy → Publish → Activate → (Deactivate → Re-publish → Re-activate)
 
 Cross-references: [sf-deploy](../sf-deploy/SKILL.md) for deployment orchestration, [sf-ai-agentscript](../sf-ai-agentscript/SKILL.md) for Agent Script development.
@@ -246,26 +258,28 @@ A `GenAiPlugin` groups multiple `GenAiFunction` entries into a logical unit. Thi
 force-app/main/default/genAiPlugins/Order_Management_Plugin.genAiPlugin-meta.xml
 ```
 
-### Deployment Order
+### Deployment: Two-Command Pattern
 
-1. Deploy the underlying **Flow** / **Apex** / **PromptTemplate** first
-2. Deploy **GenAiFunction** metadata (references the targets)
-3. Deploy **GenAiPlugin** metadata (references the functions)
-4. Publish the **Agent** (references the plugin/functions via topics)
+The production deployment pattern uses two commands — one for supporting metadata, one for the agent itself:
 
 ```bash
-# Step 1: Deploy targets
-sf project deploy start -m "Flow:Get_Order_Status_Flow" --target-org MyOrg
+# Step 1: Deploy ALL supporting metadata at once
+sf project deploy start --source-dir force-app -o ORG --json
 
-# Step 2: Deploy GenAiFunction
-sf project deploy start -m "GenAiFunction:Lookup_Order_Status" --target-org MyOrg
-
-# Step 3: Deploy GenAiPlugin (optional grouping)
-sf project deploy start -m "GenAiPlugin:Order_Management_Plugin" --target-org MyOrg
-
-# Step 4: Publish agent
-sf agent publish authoring-bundle --api-name MyAgent --target-org MyOrg
+# Step 2: Publish the agent (validates + publishes + retrieves + deploys agent metadata)
+sf agent publish authoring-bundle --api-name Agent_Name -o ORG --json
 ```
+
+| Command | Deploys | Does NOT Deploy |
+|---------|---------|-----------------|
+| `sf project deploy start --source-dir force-app` | Flows, Apex, Objects, GenAiFunction, GenAiPlugin | Agent action references, BotVersion |
+| `sf agent publish authoring-bundle --api-name X` | Validates + Publishes + Retrieves + Deploys agent metadata | Supporting metadata (Flows, Apex) |
+
+> **WARNING**: `sf project deploy start` deploys supporting metadata but does **NOT** update agent action references or BotVersion. You must use `sf agent publish` to update the agent itself.
+
+> **Note**: For new agents using Agent Script, `sf agent publish authoring-bundle` handles the entire agent lifecycle — GenAiFunction/GenAiPlugin XML is NOT needed when using Agent Script DSL.
+
+> **Bundle Metadata Warning**: The `bundle-meta.xml` file must contain ONLY `<bundleType>AGENT</bundleType>`. Adding extra fields (description, label, etc.) causes "Required fields missing" deployment errors.
 
 ---
 
@@ -394,6 +408,8 @@ sf-metadata → sf-apex → sf-flow → sf-ai-agentforce → sf-deploy
 | **Input/output names must match** | GenAiFunction input names must match Flow variable API names | Verify exact name match (case-sensitive) |
 | **Validation before publish** | Skipping validation causes late-stage failures | Always run `sf agent validate authoring-bundle` first |
 | **Data type mapping** | GenAiFunction `dataType` must align with target parameter types | Use `Text`, `Number`, `Boolean`, `Date` as appropriate |
+
+> **GenAiPluginDefinition Name Collision**: If a topic and its parent agent share the same API name, the generated GenAiPluginDefinition metadata collides, causing publish failures. Ensure unique API names across all agent components.
 
 ---
 

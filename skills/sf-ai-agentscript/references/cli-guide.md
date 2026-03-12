@@ -249,21 +249,45 @@ After user setup and permissions are configured, follow this order to avoid vers
 
 ## CI/CD Integration
 
-### GitHub Actions Example
+### GitHub Actions Example — 4-Step Deployment Pipeline
 
 ```yaml
-name: Agent Testing
+name: Agent Deploy & Test
 on: [push, pull_request]
 jobs:
-  test:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Validate Agent
-        run: sf agent validate authoring-bundle --api-name MyAgent -o TARGET_ORG --json
-      - name: Run Tests
+
+      # Step 1: Deploy supporting metadata (Flows, Apex, Objects)
+      - name: Deploy Supporting Metadata
+        run: sf project deploy start --source-dir force-app -o TARGET_ORG --json
+
+      # Step 2: Validate agent bundle syntax
+      - name: Validate Agent Bundle
+        run: sf agent validate authoring-bundle --api-name My_Agent -o TARGET_ORG --json
+
+      # Step 3: Publish agent (4-step atomic: validate -> publish -> retrieve -> deploy)
+      - name: Publish Agent
+        run: sf agent publish authoring-bundle --api-name My_Agent -o TARGET_ORG --json
+
+      # Step 4: Activate the published version
+      - name: Activate Agent
+        run: sf agent activate --api-name My_Agent -o TARGET_ORG
+
+      # Optional: Run agent tests after activation
+      - name: Run Agent Tests
         run: sf agent test run --api-name MyTestDef --wait 10 -o TARGET_ORG --json
 ```
+
+### SF Agent CLI Exit Codes
+
+| Code | Meaning | CI/CD Action |
+|------|---------|-------------|
+| 0 | Success | Proceed to next step |
+| 1 | Warning (non-critical, e.g., some targets missing) | Review warnings, may proceed |
+| 2 | Critical failure (auth, network, syntax error) | Block pipeline, fix required |
 
 ---
 

@@ -199,6 +199,14 @@ sf agent preview --authoring-bundle <path> --target-org <alias>
 
 *One of `--api-name` or `--authoring-bundle` is required.
 
+### SF Agent CLI Exit Codes
+
+| Code | Meaning | CI/CD Action |
+|------|---------|-------------|
+| 0 | Success | Proceed to next step |
+| 1 | Warning (non-critical, e.g., some targets missing) | Review warnings, may proceed |
+| 2 | Critical failure (auth, network, syntax error) | Block pipeline, fix required |
+
 ---
 
 ## Cross-Skill References

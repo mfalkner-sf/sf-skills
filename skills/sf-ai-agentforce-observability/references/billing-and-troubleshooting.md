@@ -42,3 +42,19 @@ Example:
 | `Missing DMO` | Wrong API version | Use API v60.0+ |
 
 See [references/troubleshooting.md](../references/troubleshooting.md) for detailed solutions.
+
+---
+
+## Agentforce Credit Costs (Cross-Reference)
+
+When analyzing traces for performance optimization, understanding credit costs per step type is critical:
+
+| Step Type | Credit Cost | Notes |
+|-----------|------------|-------|
+| Framework operations (`before/after_reasoning`, `set`, `if/else`, `@utils.*`) | FREE | No credit consumption |
+| Prompt Template invocations | 2-16 credits/call | Varies by template complexity |
+| Flow/Apex action executions | 20 credits/call | Most expensive step type |
+
+**Optimization insight**: When trace analysis reveals excessive action calls, consider consolidating multiple Flow actions into a single Apex action or using framework-level `set` operations where possible.
+
+See `sf-ai-agentscript/references/production-gotchas.md` for the full credit consumption model and optimization strategies.

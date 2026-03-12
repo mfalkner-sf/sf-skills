@@ -7,7 +7,7 @@
 | Data Type | `complex_data_type_name` Value | Notes |
 |-----------|-------------------------------|-------|
 | `string` | *(none needed)* | Primitive type |
-| `number` | *(none needed)* | Primitive type |
+| `number` | *(none needed)* | Primitive type — **variables only**† |
 | `boolean` | *(none needed)* | Primitive type |
 | `object` (SObject) | `lightning__recordInfoType` | Use for Account, Contact, etc. |
 | `list[string]` | `lightning__textType` | Collection of text values |
@@ -21,6 +21,11 @@
 | `double` / `number` | `lightning__doubleType` | Decimal/floating-point numbers (action I/O only) |
 | `object` (structured) | `lightning__objectType` | Complex data structures (action I/O only) |
 | `list` (generic) | `lightning__listType` | Arrays/lists (action I/O only) |
+
+> **† WARNING: #1 Publish Error Source** — Bare `number` works in `variables:` declarations
+> but **FAILS at publish** in action `inputs:`/`outputs:`. For action I/O, you MUST use:
+> - Integer values → `lightning__integerType`
+> - Decimal values → `lightning__doubleType`
 
 > **Naming variance**: Upstream documentation uses `lightning__dateTimeType` while our TDD-validated testing confirms `lightning__dateTimeStringType`. Both may be valid depending on API version — use `lightning__dateTimeStringType` as the tested default.
 

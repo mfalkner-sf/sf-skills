@@ -554,6 +554,26 @@ Save transcript? (y/n): y
 Saved to: ./logs/transcript.json
 ```
 
+### Programmatic Preview (Non-Interactive)
+
+For CI/CD and automation, use the non-interactive preview subcommands:
+
+```bash
+# Start a preview session (returns session ID)
+sf agent preview start --api-name My_Agent -o ORG --json
+
+# Send a message to the session
+sf agent preview send --session-id SESSION_ID --message "Hello" -o ORG --json
+
+# Send a follow-up message (same session for multi-turn)
+sf agent preview send --session-id SESSION_ID --message "Check order 12345" -o ORG --json
+
+# End the session
+sf agent preview end --session-id SESSION_ID -o ORG --json
+```
+
+These subcommands enable automated conversation testing outside the interactive REPL. See also: `sf-ai-agentscript/references/cli-guide.md` for the full preview workflow.
+
 **Output Files:**
 
 When using `--output-dir`:

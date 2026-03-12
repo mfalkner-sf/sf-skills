@@ -370,6 +370,16 @@
 
 ---
 
+### Issue 25: GenAiPluginDefinition Duplicate Name Collision
+
+**Symptom**: Publish fails with `GenAiPluginDefinition` name conflict error.
+
+**Cause**: When `start_agent` and a `topic` share the same API name, the generated GenAiPluginDefinition metadata collides — both produce identically-named plugin definitions.
+
+**Workaround**: Ensure `start_agent` and all `topic` blocks use unique API names. A common pattern is to prefix the start agent name (e.g., `Start_My_Agent` vs `My_Agent_Topic`).
+
+---
+
 ## Resolved Issues
 
 ### Issue 16: `connections:` (plural) wrapper block not valid — use `connection messaging:` (singular)

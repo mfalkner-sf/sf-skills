@@ -584,6 +584,21 @@ jq '.result.testCases[].generatedData.invokedActions | fromjson | .[0][0].functi
 | `custom-eval-test-spec.yaml` | Custom evaluations with JSONPath assertions (**⚠️ Spring '26 bug**) | **Yes** (bug blocks results) |
 | `cli-auth-guardrail-tests.yaml` | Auth gate, guardrail, ambiguous routing, and session tests | **Yes** |
 | `cli-deep-history-tests.yaml` | Deep conversation history patterns (protocol activation, mid-stage, opt-out, session persistence) | **Yes** |
+
+#### Strategic Test Type Selection
+
+| Spec Type | Purpose | When to Use |
+|-----------|---------|-------------|
+| `basic-test-spec` | Topic routing + action invocation | Smoke tests, PR validation, initial agent bring-up |
+| `cli-auth-guardrail-tests` | Auth gates, platform topics, deflection, prompt injection | Security review, compliance gates, guardrail audits |
+| `standard-test-spec` | Full regression with context vars + conversation history | Pre-release validation, production gates |
+| `comprehensive-test-spec` | All field types including metrics and custom evals | Full coverage baseline, quarterly regression |
+| `agentscript-test-spec` | Agent Script agents with conversationHistory pattern | Agent Script validation (two-level action model) |
+| `context-vars-test-spec` | Context variable injection (RoutableId, EndUserId) | Testing flows that depend on session context |
+| `cli-deep-history-tests` | Multi-turn with deep conversation history | Complex dialog flow verification, session persistence |
+
+> **Start with `basic-test-spec`** for new agents — it validates topic routing and action invocation with minimal setup. Graduate to `standard-test-spec` once routing is stable, and add `cli-auth-guardrail-tests` before any security review.
+
 | `escalation-tests.yaml` | Escalation scenarios | **No** — Phase A (API) only |
 | `guardrail-tests.yaml` | Guardrail scenarios | **No** — Phase A (API) only |
 | `multi-turn-*.yaml` | Multi-turn API scenarios | **No** — Phase A (API) only |

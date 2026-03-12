@@ -177,6 +177,23 @@ Full state captured at NodeEntryStateStep (Turn 1):
 
 ---
 
+## STDM Span Types (Testing Center Trace View)
+
+When viewing session traces in Testing Center (not Builder), steps are collapsed into 6 color-coded span types:
+
+| Span Type              | Color      | Maps to Builder Steps                     |
+|------------------------|------------|-------------------------------------------|
+| TOPIC_STEP             | Blue       | NodeEntryStateStep, TransitionStep         |
+| LLM_STEP               | Purple     | LLMStep, EnabledToolsStep                  |
+| ACTION_STEP            | Green      | FunctionStep                               |
+| TRUST_GUARDRAILS_STEP  | Orange     | ReasoningStep, PlannerResponseStep         |
+| SESSION_END            | Gray       | Session termination                        |
+| SYSTEM_STEP            | Light gray | SessionInitialStateStep, VariableUpdateStep|
+
+This mapping is critical for correlating Builder-level debugging with Testing Center trace analysis. A single TOPIC_STEP span in Testing Center may represent multiple NodeEntryStateStep + TransitionStep events at the Builder level.
+
+---
+
 ## Related Documents
 
 - [builder-trace-api.md](builder-trace-api.md) — Reverse-engineered API endpoints and capture methodology

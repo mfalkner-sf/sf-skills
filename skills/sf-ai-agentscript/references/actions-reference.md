@@ -128,6 +128,28 @@ target: "externalService://Stripe_Payment_API"
 
 **Tip**: Before creating a custom Flow, check if a `standardInvocableAction://` already exists for your use case.
 
+### Pre-Publish Target Validation
+
+Before `sf agent publish`, verify action targets exist and are active:
+
+| Target Protocol | Validation Query |
+|-----------------|-----------------|
+| `flow://X` | `SELECT ApiName FROM FlowDefinitionView WHERE ApiName = 'X' AND IsActive = true` |
+| `apex://X` | `SELECT Name FROM ApexClass WHERE Name = 'X'` |
+| `retriever://X` | `SELECT DeveloperName FROM DataCloudRetriever WHERE DeveloperName = 'X'` |
+| `externalService://X` | `SELECT DeveloperName FROM ExternalServiceRegistration WHERE DeveloperName = 'X'` |
+| `generatePromptResponse://X` | `SELECT DeveloperName FROM PromptTemplate WHERE DeveloperName = 'X' AND Status = 'Active'` |
+
+Run these via: `sf data query -q "QUERY" -o ORG --json`
+
+### Direct Action Invocation (Debugging)
+
+Test action targets outside the agent context via REST API:
+- Flow: `POST /services/data/v66.0/actions/custom/flow/{FlowApiName}`
+- Apex: `POST /services/data/v66.0/actions/custom/apex/{ClassName}`
+
+Useful for isolating whether failures are in the action target or the agent framework.
+
 ---
 
 ## Action Invocation Methods
