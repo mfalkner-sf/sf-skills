@@ -120,6 +120,9 @@ sf agent validate authoring-bundle --api-name ProntoRefund -o TARGET_ORG --json
 # Publish agent to org (4-step process: Validate → Publish → Retrieve → Deploy)
 sf agent publish authoring-bundle --api-name ProntoRefund -o TARGET_ORG --json
 
+# If publish fails AFTER validate/preview pass, retry without retrieve-back:
+sf agent publish authoring-bundle --api-name ProntoRefund -o TARGET_ORG --skip-retrieve --json
+
 # Expected output:
 # ✔ Validate Bundle    ~1-2s
 # ✔ Publish Agent      ~8-10s
@@ -128,6 +131,10 @@ sf agent publish authoring-bundle --api-name ProntoRefund -o TARGET_ORG --json
 ```
 
 > ⚠️ Do NOT use `sf project deploy start` - it will fail with "Required fields are missing: [BundleType]"
+>
+> ⚠️ **Real-world failure split**:
+> - If plain publish fails but `--skip-retrieve` succeeds, the problem is usually the CLI retrieve/deploy-back phase, not Agent Script compilation.
+> - If publish still fails even with `--skip-retrieve`, suspect `default_agent_user` first.
 
 ### Step 5: Activate
 
@@ -164,11 +171,12 @@ sf agent validate authoring-bundle --api-name MyAgent -o TARGET_ORG --json
 sf agent test run --api-name MyTestDef --wait 10 -o TARGET_ORG --json
 ```
 
-### Common Validation Errors
+### Common Validation / Publish Errors
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `Internal Error, try again later` | Invalid `default_agent_user` | Query for Einstein Agent Users |
+| `Internal Error, try again later` during **publish** | Often invalid `default_agent_user` for Service Agent | Verify the user exists, is active, is NOT `AutomatedProcess`, and has Profile.Name = `Einstein Agent User` |
+| Plain publish fails, `--skip-retrieve` succeeds | CLI retrieve/deploy-back phase failed after successful publish | Re-run `sf agent publish authoring-bundle ... --skip-retrieve --json` |
 | `SyntaxError: You cannot mix spaces and tabs` | Mixed indentation | Use consistent spacing |
 | `Transition to undefined topic "@topic.X"` | Typo in topic name | Check spelling |
 | `Variables cannot be both mutable AND linked` | Conflicting modifiers | Choose one modifier |
@@ -184,6 +192,16 @@ sf agent test run --api-name MyTestDef --wait 10 -o TARGET_ORG --json
 ```bash
 sf data query --query "SELECT Id, Username, IsActive FROM User WHERE Profile.Name = 'Einstein Agent User' AND IsActive = true" -o TARGET_ORG --json
 ```
+
+### Prepublish Check (Recommended)
+
+```bash
+python3 ~/.claude/skills/sf-ai-agentscript/hooks/scripts/prepublish-check.py \
+  force-app/main/default/aiAuthoringBundles/ProntoRefund/ProntoRefund.agent \
+  --target-org TARGET_ORG --api-name ProntoRefund
+```
+
+This catches the most common real-world publish failure: a `default_agent_user` value that passes `sf agent validate` but fails `sf agent publish` because the user is missing, inactive, `AutomatedProcess`, or not on the **Einstein Agent User** profile.
 
 ### Create Einstein Agent User
 

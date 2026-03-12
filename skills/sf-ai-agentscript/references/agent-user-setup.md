@@ -265,6 +265,16 @@ config:
   default_agent_user: "{agent_name}_agent@{orgId}.ext"  # Service agents ONLY
 ```
 
+**Before publishing, verify the actual user object** — not just the username string:
+
+```bash
+python3 ~/.claude/skills/sf-ai-agentscript/hooks/scripts/prepublish-check.py \
+  force-app/main/default/aiAuthoringBundles/<AgentName>/<AgentName>.agent \
+  --target-org TARGET_ORG --api-name <AgentName>
+```
+
+This catches cases where `sf agent validate` passes but `sf agent publish` later fails because the configured user is missing, inactive, `AutomatedProcess`, or not on the **Einstein Agent User** profile.
+
 ---
 
 ### Step 6: Deploy, Test, Publish & Activate
@@ -304,12 +314,20 @@ If testing reveals problems, edit your agent script or Apex classes, redeploy, a
 **Only publish after all tests pass.**
 
 ```bash
+# First try the standard publish path
 sf agent publish authoring-bundle \
   --api-name <AgentName> \
   -o TARGET_ORG --json
+
+# If that fails after validate/preview pass, retry without retrieve-back
+sf agent publish authoring-bundle \
+  --api-name <AgentName> \
+  -o TARGET_ORG --skip-retrieve --json
 ```
 
 > **Publishing does NOT activate.** The new BotVersion is created as `Inactive`. You must explicitly activate.
+>
+> **Why `--skip-retrieve` matters**: In org-backed testing, some publishes succeeded in the org but the CLI failed in the retrieve/deploy-back phase. `--skip-retrieve` isolates that tooling issue.
 
 #### 6.4: Activate Agent
 

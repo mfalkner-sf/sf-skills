@@ -247,11 +247,16 @@ Level 2: ACTION INVOCATION (in `reasoning.actions:` block)
 
 ### Phase 3: Validation (LSP + CLI)
 
-> **AUTOMATIC**: LSP validation runs on every Write/Edit to `.agent` files — catches mixed tabs/spaces, lowercase booleans, missing blocks, invalid `default_agent_user`, and undefined topic references. Fix errors, re-save, repeat until clean.
+> **AUTOMATIC**: validation runs on every Write/Edit to `.agent` files — catches mixed tabs/spaces, invalid Service-vs-Employee `default_agent_user` usage, invalid `@utils.transition` metadata, empty-list expression gotchas, bare `run` calls, and common variable/reference errors. Fix errors, re-save, repeat until clean.
 
 ```bash
 # CLI Validation (before deploy):
 sf agent validate authoring-bundle --api-name MyAgent -o TARGET_ORG --json
+
+# Org-aware prepublish check (recommended for Service Agents):
+python3 ~/.claude/skills/sf-ai-agentscript/hooks/scripts/prepublish-check.py \
+  force-app/main/default/aiAuthoringBundles/MyAgent/MyAgent.agent \
+  --target-org TARGET_ORG --api-name MyAgent
 ```
 
 ### Phase 3.5: Preview Smoke Test Loop (Pre-Publish)
@@ -288,9 +293,14 @@ Batch testing (up to 100 cases), quality metrics (Completeness, Coherence, Topic
 1. **Create bundle directory**: `force-app/main/default/aiAuthoringBundles/AgentName/`
 2. **Add files**: `AgentName.agent` + `AgentName.bundle-meta.xml` (NOT `.aiAuthoringBundle-meta.xml`)
 3. **Publish**: `sf agent publish authoring-bundle --api-name AgentName -o TARGET_ORG --json`
+   - If plain publish fails **after** `validate` and `preview` pass, retry with:
+     `sf agent publish authoring-bundle --api-name AgentName -o TARGET_ORG --skip-retrieve --json`
+   - In org-backed testing, this isolates a common CLI failure where publish succeeds but the retrieve-back phase fails.
 4. **Activate**: `sf agent activate --api-name AgentName -o TARGET_ORG` _(no `--json` support)_
 
 > ⚠️ **Publishing does NOT activate.** After `sf agent publish`, the new BotVersion is `Inactive`. Tests and preview run against the previous active version. You MUST run `sf agent activate` separately.
+>
+> ⚠️ **Validate ≠ publish safety**. A Service Agent can pass `sf agent validate` and still fail publish if `default_agent_user` is not a real **Einstein Agent User**. Run the prepublish check above or manually query the user before publishing.
 
 **Full lifecycle**: Validate → Deploy → Publish → Activate → (Deactivate → Re-publish → Re-activate)
 
@@ -355,7 +365,8 @@ These execute as **code**, not suggestions. The LLM cannot override them.
 
 | Issue | Symptom | Fix |
 |-------|---------|-----|
-| `Internal Error, try again later` | Invalid `default_agent_user` | Query Einstein Agent User in target org |
+| `Internal Error, try again later` | Often invalid `default_agent_user` for Service Agent publish | Verify the user is active, not `AutomatedProcess`, and has Profile.Name = `Einstein Agent User` |
+| Plain publish fails, `--skip-retrieve` works | CLI retrieve-back phase failure after successful publish | Re-run `sf agent publish authoring-bundle ... --skip-retrieve --json` |
 | `No .agent file found in directory` | `agent_name` doesn't match folder | Make `developer_name` identical to folder name |
 | `SyntaxError: cannot mix spaces and tabs` | Mixed indentation | Use consistent spacing throughout |
 | `SyntaxError: Unexpected 'if'` | Nested if statements | Use compound `if A and B:` or flatten |

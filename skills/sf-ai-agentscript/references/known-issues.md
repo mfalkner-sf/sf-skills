@@ -355,8 +355,9 @@
 - **Affects**: `sf agent publish authoring-bundle`
 - **Symptom**: Publish fails with generic HTTP 500 error (no detailed message). Occurs when `default_agent_user` is included in the config block for an `AgentforceEmployeeAgent`, or when `default_agent_user` references a non-existent user for a Service Agent.
 - **Root Cause**: The Einstein Platform tries to resolve the `default_agent_user` reference during publish. For Employee Agents, this field is invalid entirely. For Service Agents, if the user doesn't exist or lacks the Einstein Agent User profile, the API returns 500 instead of a descriptive error.
-- **Workaround**: For Employee Agents, remove `default_agent_user` entirely and set `agent_type: "AgentforceEmployeeAgent"`. For Service Agents, verify the user exists: `SELECT Username FROM User WHERE Profile.Name = 'Einstein Agent User' AND IsActive = true`
-- **Open Questions**: Will the API return a descriptive error instead of 500?
+- **Workaround**: For Employee Agents, remove `default_agent_user` entirely and set `agent_type: "AgentforceEmployeeAgent"`. For Service Agents, verify the user exists and is truly valid for publish: active, not `AutomatedProcess`, and `Profile.Name = 'Einstein Agent User'`.
+- **Extra diagnostic**: If `sf agent publish authoring-bundle --json` still fails after validate/preview pass, retry with `--skip-retrieve`. If `--skip-retrieve` succeeds, the failure was in the CLI retrieve/deploy-back phase rather than in the publish itself.
+- **Open Questions**: Will the API return a descriptive error instead of 500? Will the CLI expose retrieve-phase failures separately from publish failures?
 
 ---
 
