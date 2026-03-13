@@ -13,7 +13,6 @@ interprets results according to `assets/validation-profiles.json`.
 from __future__ import annotations
 
 import json
-import sys
 from collections import defaultdict
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
@@ -67,12 +66,22 @@ def main() -> int:
             print(f"  - {path}")
         return 1
 
-    profile_stats: Dict[str, Dict[str, int]] = defaultdict(lambda: {"files": 0, "blocking": 0, "warnings": 0})
-    unexpected_failures: List[Tuple[str, str]] = []
+    profile_stats: Dict[str, Dict[str, int]] = defaultdict(
+        lambda: {
+            "files": 0,
+            "blocking": 0,
+            "warnings": 0,
+            "unexpected_blocking": 0,
+            "unexpected_warnings": 0,
+        }
+    )
+    unexpected_blockers: List[Tuple[str, str]] = []
+    unexpected_warnings: List[Tuple[str, str]] = []
 
     for path in asset_files:
         profile = file_map[str(path.resolve())]
         allowed_blocking_ids = set(profile.get("allowBlockingIds", []))
+        allowed_warning_ids = set(profile.get("allowWarningIds", []))
 
         validator = AgentScriptValidator(path.read_text(encoding="utf-8"), str(path))
         result = validator.validate()
@@ -82,14 +91,17 @@ def main() -> int:
         profile_stats[profile_name]["blocking"] += len(result["errors"])
         profile_stats[profile_name]["warnings"] += len(result["warnings"])
 
-        unexpected = []
         for _, _, message in result["errors"]:
             rule_id = extract_rule_id(message)
             if rule_id not in allowed_blocking_ids:
-                unexpected.append(message)
+                unexpected_blockers.append((str(path), message))
+                profile_stats[profile_name]["unexpected_blocking"] += 1
 
-        if unexpected:
-            unexpected_failures.append((str(path), unexpected[0]))
+        for _, _, message in result["warnings"]:
+            rule_id = extract_rule_id(message)
+            if rule_id not in allowed_warning_ids:
+                unexpected_warnings.append((str(path), message))
+                profile_stats[profile_name]["unexpected_warnings"] += 1
 
     print("Asset validation profile summary")
     print("-------------------------------")
@@ -97,16 +109,31 @@ def main() -> int:
         stats = profile_stats[profile["name"]]
         print(
             f"- {profile['name']}: {stats['files']} files, "
-            f"{stats['blocking']} raw blocking findings, {stats['warnings']} warnings"
+            f"{stats['blocking']} raw blocking findings ({stats['unexpected_blocking']} unexpected), "
+            f"{stats['warnings']} raw warnings ({stats['unexpected_warnings']} unexpected)"
         )
 
-    if unexpected_failures:
+    failed = False
+    if unexpected_blockers:
+        failed = True
         print("\n❌ Unexpected blocking findings:")
-        for path, message in unexpected_failures:
+        for path, message in unexpected_blockers[:20]:
             print(f"- {path}\n    {message}")
+        if len(unexpected_blockers) > 20:
+            print(f"  ... and {len(unexpected_blockers) - 20} more")
+
+    if unexpected_warnings:
+        failed = True
+        print("\n❌ Unexpected warnings:")
+        for path, message in unexpected_warnings[:20]:
+            print(f"- {path}\n    {message}")
+        if len(unexpected_warnings) > 20:
+            print(f"  ... and {len(unexpected_warnings) - 20} more")
+
+    if failed:
         return 1
 
-    print("\n✅ All asset files matched their configured validation profile expectations.")
+    print("\n✅ All asset files matched their configured blocking and warning expectations.")
     return 0
 
 

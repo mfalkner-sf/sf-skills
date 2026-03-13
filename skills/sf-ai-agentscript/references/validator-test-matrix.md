@@ -83,6 +83,7 @@ These are not complete agents and are expected to fail a full-agent validator be
 
 ## Notes from This Audit
 
+- The profile-aware harness now tracks both **expected blocking IDs** and **expected warning IDs**. That means remaining warning-heavy teaching templates are documented rather than treated as unexplained noise.
 - The validator expansion surfaced **real sample issues** that were worth fixing:
   - `assets/deterministic-routing.agent` was flattened to remove unsupported nested `if` blocks.
   - `assets/verification-gate.agent` now declares `refund_amount` before it is referenced.
