@@ -9,14 +9,11 @@ A collection of reusable skills for **Agentic Salesforce Development**, enabling
 
 **What you get:** 19 Salesforce skills, 7 specialist Claude Code agents, a shared hook system for guardrails and auto-validation, and LSP-backed feedback for Apex, LWC, and Agent Script.
 
-### Recent Highlights
-
-- **Agent Script validator expansion** — stable `ASV-*` rule IDs, rule catalog docs, and profile-aware asset validation
-- **Observability trace tooling** — Builder trace capture and `trace-test` workflows in `sf-ai-agentforce-observability`
-- **Installer maturity** — native `~/.claude/` layout, profile management, diagnostics, cleanup, and Windows-compatible hook support
-- **Claude Code full experience** — 7-agent team, org preflight, LSP prewarm, validator dispatcher, and cross-skill guardrails
+**Start here:** [Available Skills](#available-skills) · [Installation](#installation) · [Claude Code Features](#claude-code-features) · [Skill Architecture](#skill-architecture)
 
 ---
+
+<a id="available-skills"></a>
 
 ## ✨ Available Skills
 
@@ -30,6 +27,8 @@ The library is organized by capability area so you can scan quickly, pick the ri
 | 🔌 **Integration** | [sf-connected-apps](skills/sf-connected-apps/), [sf-integration](skills/sf-integration/) | OAuth, External Client Apps, Named Credentials, callouts, and events |
 | 🤖 **AI & Automation** | [sf-ai-agentscript](skills/sf-ai-agentscript/), [sf-ai-agentforce](skills/sf-ai-agentforce/), [sf-ai-agentforce-testing](skills/sf-ai-agentforce-testing/), [sf-ai-agentforce-observability](skills/sf-ai-agentforce-observability/), [sf-ai-agentforce-persona](skills/sf-ai-agentforce-persona/) | Agent design, Agent Script, testing, observability, and persona design |
 | 🚀 **DevOps & Tooling** | [sf-deploy](skills/sf-deploy/), [sf-diagram-mermaid](skills/sf-diagram-mermaid/), [sf-diagram-nanobananapro](skills/sf-diagram-nanobananapro/) | Deployment automation, Mermaid diagrams, and visual artifacts |
+
+<a id="installation"></a>
 
 ## 🚀 Installation
 
@@ -144,6 +143,8 @@ python3 ~/.claude/sf-skills-install.py --profile delete old
 | **PostToolUse** | Validator dispatcher for file-aware checks after Write/Edit |
 
 For deeper install and hook internals, see [tools/README.md](tools/README.md) and [shared/hooks/README.md](shared/hooks/README.md).
+
+<a id="claude-code-features"></a>
 
 ## ⚙️ Claude Code Features
 
@@ -305,96 +306,25 @@ fde-strategist (orchestrator — plans, researches, delegates)
 
 The strategist spawns up to 4 concurrent workers via `Task()`. PS agents have `WebSearch` and `WebFetch` for self-directed Salesforce docs lookup.
 
+<a id="skill-architecture"></a>
+
 ## 🔗 Skill Architecture
 
-This is the working mental model for the ecosystem: foundation and integration skills support build work, quality skills reinforce delivery, AI skills layer on top for agent creation and testing, and `sf-deploy` carries the finished assets across environments.
+This is the working mental model for the ecosystem: foundation and integration skills support build work, quality skills reinforce delivery, AI skills cluster around Agentforce workflows, and `sf-deploy` carries finished assets across environments.
 
-```mermaid
-flowchart TD
-    subgraph FOUNDATION["📦 Foundation"]
-        META["sf-metadata"]
-        DATA["sf-data"]
-        PERM["sf-permissions"]
-    end
+<p align="center">
+  <img src="docs/assets/skill-ecosystem-overview.svg" width="100%" alt="SF Skills ecosystem workflow map showing Foundation, Integration, Development, Quality, AI & Automation, and DevOps & Tooling relationships" />
+</p>
 
-    subgraph INTEGRATION["🔌 Integration"]
-        CONN["sf-connected-apps"]
-        INT["sf-integration"]
-    end
+- **Foundation + Integration** provide schema, data, access, OAuth, and service patterns.
+- **Development** is the implementation layer for Apex, Flow, LWC, and SOQL.
+- **Quality** validates and troubleshoots build work before release.
+- **AI & Automation** centers on Agentforce, with Agent Script, persona, testing, and observability feeding into it.
+- **DevOps & Tooling** handles deployment and visual documentation.
 
-    subgraph DEVELOPMENT["💻 Development"]
-        APEX["sf-apex"]
-        FLOW["sf-flow"]
-        LWC["sf-lwc"]
-        SOQL["sf-soql"]
-    end
-
-    subgraph QUALITY["🧪 Quality"]
-        TEST["sf-testing"]
-        DEBUG["sf-debug"]
-    end
-
-    subgraph AI["🤖 AI & Automation"]
-        SCRIPT["sf-ai-agentscript"]
-        AGENT["sf-ai-agentforce"]
-        ATEST["sf-ai-agentforce-testing"]
-        OBS["sf-ai-agentforce-observability"]
-        PERSONA["sf-ai-agentforce-persona"]
-    end
-
-    subgraph DEVOPS["🚀 DevOps & Tooling"]
-        DEPLOY["sf-deploy"]
-        MERMAID["sf-diagram-mermaid"]
-        VISUAL["sf-diagram-nanobananapro"]
-    end
-
-    META -->|schema + metadata context| APEX
-    META -->|object model| FLOW
-    DATA -->|test data + fixtures| TEST
-    PERM -->|access model| AGENT
-    CONN -->|OAuth + ECA setup| INT
-    INT -->|callouts + event patterns| APEX
-    INT -->|service orchestration| FLOW
-    SOQL -->|query patterns| DATA
-    TEST -->|validates| APEX
-    TEST -->|validates| FLOW
-    DEBUG -->|troubleshoots| APEX
-    SCRIPT -->|deterministic flows| AGENT
-    PERSONA -->|voice + behavior| AGENT
-    ATEST -->|test specs + fix loops| AGENT
-    OBS -->|trace-test + session analysis| AGENT
-    MERMAID -->|ERD + architecture docs| INT
-    VISUAL -->|mockups + visual assets| LWC
-    DEPLOY -->|ships| APEX
-    DEPLOY -->|ships| FLOW
-    DEPLOY -->|ships| LWC
-    DEPLOY -->|ships| AGENT
-
-    classDef foundation fill:#e0f2fe,stroke:#0284c7,color:#111827,stroke-width:1.5px;
-    classDef integration fill:#fef3c7,stroke:#d97706,color:#111827,stroke-width:1.5px;
-    classDef development fill:#e0e7ff,stroke:#4f46e5,color:#111827,stroke-width:1.5px;
-    classDef quality fill:#ecfccb,stroke:#65a30d,color:#111827,stroke-width:1.5px;
-    classDef ai fill:#fce7f3,stroke:#be185d,color:#111827,stroke-width:1.5px;
-    classDef devops fill:#dcfce7,stroke:#059669,color:#111827,stroke-width:1.5px;
-
-    class META,DATA,PERM foundation;
-    class CONN,INT integration;
-    class APEX,FLOW,LWC,SOQL development;
-    class TEST,DEBUG quality;
-    class SCRIPT,AGENT,ATEST,OBS,PERSONA ai;
-    class DEPLOY,MERMAID,VISUAL devops;
-
-    style FOUNDATION fill:#f6fbff,stroke:#0284c7,stroke-width:2px,color:#111827
-    style INTEGRATION fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#111827
-    style DEVELOPMENT fill:#f5f7ff,stroke:#4f46e5,stroke-width:2px,color:#111827
-    style QUALITY fill:#f7fee7,stroke:#65a30d,stroke-width:2px,color:#111827
-    style AI fill:#fff1f7,stroke:#be185d,stroke-width:2px,color:#111827
-    style DEVOPS fill:#f0fdf4,stroke:#059669,stroke-width:2px,color:#111827
-```
-
-> **Read this as a workflow map, not a dependency graph.** The edges highlight the most common collaboration paths between skills.
+> **Why SVG instead of Mermaid here?** GitHub renders larger Mermaid graphs very small. A custom SVG keeps labels crisp, lets us control spacing, and stays readable in the README.
 >
-> **Deployment path:** use [sf-deploy](skills/sf-deploy/) for Salesforce deployments across Apex, Flow, LWC, metadata, and Agentforce assets.
+> **Deployment path:** use [sf-deploy](skills/sf-deploy/) for Salesforce deployments across Apex, Flow, LWC, metadata, and Agentforce assets. For local browser viewing, a standalone companion lives at `docs/assets/skill-ecosystem-overview.html`.
 
 ## 🎬 Video Tutorials
 
