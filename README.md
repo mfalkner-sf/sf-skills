@@ -318,7 +318,7 @@ The strategist spawns up to 4 concurrent workers via `Task()`. PS agents have `W
 This is the working mental model for the ecosystem: foundation and integration skills support build work, quality skills reinforce delivery, AI skills cluster around Agentforce workflows, and `sf-deploy` carries finished assets across environments.
 
 <p align="center">
-  <img src="docs/assets/skill-ecosystem-overview.svg" width="100%" alt="SF Skills ecosystem workflow map showing Foundation, Integration, Development, Quality, AI & Automation, and DevOps & Tooling relationships" />
+  <img src="docs/assets/skill-ecosystem-overview.svg" width="100%" alt="SF Skills ecosystem capability map showing Foundation, Integration, Development, Quality, AI & Automation, and DevOps & Tooling clusters" />
 </p>
 
 - **Foundation + Integration** provide schema, data, access, OAuth, and service patterns.
@@ -327,7 +327,7 @@ This is the working mental model for the ecosystem: foundation and integration s
 - **AI & Automation** centers on Agentforce, with Agent Script, persona, testing, and observability feeding into it.
 - **DevOps & Tooling** handles deployment and visual documentation.
 
-> **Why SVG instead of Mermaid here?** GitHub renders larger Mermaid graphs very small. A custom SVG keeps labels crisp, lets us control spacing, and stays readable in the README.
+> **Why SVG instead of Mermaid here?** GitHub renders larger Mermaid graphs very small. A custom SVG keeps labels crisp, gives us better spacing, and reads more like a clean capability map than a dense dependency graph.
 >
 > **Deployment path:** use [sf-deploy](skills/sf-deploy/) for Salesforce deployments across Apex, Flow, LWC, metadata, and Agentforce assets. For local browser viewing, a standalone companion lives at `docs/assets/skill-ecosystem-overview.html`.
 
