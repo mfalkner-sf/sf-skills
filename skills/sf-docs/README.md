@@ -91,6 +91,14 @@ python3 skills/sf-docs/scripts/cli.py retrieve \
   --mode qmd_first
 ```
 
+### Run no-qmd retrieval for Help article discovery
+
+```bash
+python3 skills/sf-docs/scripts/cli.py retrieve \
+  --query "Find official Salesforce Help documentation about Messaging for In-App and Web allowed domains, CORS allowlist, and allowed origins." \
+  --mode no_qmd
+```
+
 ### Execute the core benchmark and write results
 
 ```bash

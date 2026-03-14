@@ -51,6 +51,17 @@ Use this mode when qmd is not installed or no local corpus exists.
 4. Fall back to official PDFs when web pages are unstable or shell-rendered
 5. Return grounded findings with source links and any uncertainty called out
 
+**Claude Code operator shortcut:**
+When the local `sf-docs` helper scripts are installed, prefer the built-in retrieval command over ad-hoc search-engine probing:
+
+```bash
+python3 ~/.claude/skills/sf-docs/scripts/cli.py retrieve \
+  --query "<user question>" \
+  --mode no_qmd
+```
+
+For hard `help.salesforce.com` questions, this command applies the local no-qmd retrieval flow, including targeted Help article discovery and browser-based rendering.
+
 ### Runtime Detection
 
 `sf-docs` should detect qmd **at runtime**, not just rely on installer choices.
@@ -120,10 +131,14 @@ When an HTML page fails because of JavaScript rendering, shell content, or soft 
 Help pages often fail with generic web fetch because of client-side rendering and site chrome.
 
 Use this approach:
-- Prefer article URLs or article identifiers when available
+- Prefer exact `help.salesforce.com/s/articleView?id=...` URLs or article identifiers when available
+- If you only have a product/topic query, start from a targeted official hub and discover linked Help articles from there
+  - Agentforce queries: start from the Agentforce developer guide and follow linked Help articles
+  - Messaging / Enhanced Web Chat queries: start from the Enhanced Web Chat docs or landing Help article, then follow one hop to child setup/security articles
 - Expect navigation shell noise and incomplete body extraction
 - Focus on retrieving the actual article body, not the rendered header/footer shell
-- Cross-check titles and product area before trusting a result
+- Reject shell or soft-404 pages such as "We looked high and low but couldn't find that page"
+- Cross-check titles, product area, and article body before trusting a result
 
 ### 5. PDFs Are a Valid Official Fallback
 

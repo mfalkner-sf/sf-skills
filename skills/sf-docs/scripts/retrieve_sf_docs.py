@@ -36,6 +36,44 @@ from sf_docs_runtime import (  # type: ignore
 from sync_sf_docs import extract_pdf_text, read_json, run_browser_scraper  # type: ignore
 
 
+HELP_ARTICLE_HINTS = {
+    'agentforce': [
+        'https://help.salesforce.com/s/articleView?id=ai.generative_ai.htm',
+        'https://help.salesforce.com/s/articleView?id=sf.copilot_intro.htm&type=5',
+    ],
+    'generative ai': [
+        'https://help.salesforce.com/s/articleView?id=ai.generative_ai.htm',
+    ],
+    'messaging': [
+        'https://help.salesforce.com/s/articleView?id=service.miaw_intro_landing.htm',
+    ],
+    'enhanced web chat': [
+        'https://help.salesforce.com/s/articleView?id=service.miaw_intro_landing.htm',
+    ],
+    'in-app and web': [
+        'https://help.salesforce.com/s/articleView?id=service.miaw_intro_landing.htm',
+    ],
+}
+
+HELP_DISCOVERY_SOURCES = {
+    'agentforce': [
+        'https://developer.salesforce.com/docs/ai/agentforce/guide/',
+    ],
+    'generative ai': [
+        'https://developer.salesforce.com/docs/ai/agentforce/guide/',
+    ],
+    'messaging': [
+        'https://developer.salesforce.com/docs/service/messaging-web/guide/',
+    ],
+    'enhanced web chat': [
+        'https://developer.salesforce.com/docs/service/messaging-web/guide/',
+    ],
+    'in-app and web': [
+        'https://developer.salesforce.com/docs/service/messaging-web/guide/',
+    ],
+}
+
+
 def load_manifest(path: Path) -> Dict[str, Any]:
     return json.loads(path.read_text())
 
@@ -180,6 +218,186 @@ def enrich_result(base: Dict[str, Any], evidence: Dict[str, Any], text: str) -> 
     return enriched
 
 
+def canonical_help_url(url: str) -> str:
+    return re.sub(r'([?&])language=en_US&?', r'\1', url).rstrip('?&')
+
+
+def help_article_id(url: str) -> str:
+    match = re.search(r'[?&]id=([^&#]+)', url)
+    if match:
+        return match.group(1)
+    return canonical_help_url(url).rstrip('/').rsplit('/', 1)[-1]
+
+
+def help_article_missing(payload: Dict[str, Any]) -> bool:
+    title = normalize_query(payload.get('title') or '')
+    text = normalize_query(payload.get('text') or '')
+    bad_signals = [
+        'we looked high and low',
+        "couldn't find that page",
+        '404 error',
+        'salesforce help | article',
+    ]
+    return any(signal in title or signal in text for signal in bad_signals)
+
+
+def help_article_urls_from_payload(payload: Dict[str, Any]) -> List[str]:
+    urls: List[str] = []
+    for link in payload.get('childLinks', []) or []:
+        if isinstance(link, str) and 'help.salesforce.com/s/articleView' in link:
+            urls.append(canonical_help_url(link))
+    deduped: List[str] = []
+    seen = set()
+    for url in urls:
+        if url not in seen:
+            seen.add(url)
+            deduped.append(url)
+    return deduped
+
+
+def local_scrape_payloads(manifest: Dict[str, Any], guides: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    payloads: List[Dict[str, Any]] = []
+    seen_paths = set()
+    for guide in guides + manifest.get('guides', []):
+        raw_scrape_path = guide.get('raw_scrape_path')
+        if not raw_scrape_path:
+            continue
+        path = str(Path(raw_scrape_path).expanduser())
+        if path in seen_paths:
+            continue
+        seen_paths.add(path)
+        scrape_path = Path(path)
+        if scrape_path.is_file():
+            try:
+                payloads.append(read_json(scrape_path))
+            except Exception:
+                continue
+    return payloads
+
+
+def score_help_url(query: str, url: str) -> int:
+    lowered = normalize_query(query)
+    canonical = canonical_help_url(url).lower()
+    score = 0
+    for needle, urls in HELP_ARTICLE_HINTS.items():
+        if needle in lowered and canonical_help_url(urls[0]).lower() == canonical:
+            score += 12
+    signature = build_query_signature(query)
+    article_id = help_article_id(url).lower()
+    for phrase in signature.get('phrases', []):
+        if phrase.replace(' ', '_') in article_id or phrase.replace(' ', '.') in article_id:
+            score += 8
+    for term in signature.get('terms', []):
+        if term in article_id:
+            score += 2
+    if 'miaw' in article_id and any(token in lowered for token in ('messaging', 'web chat', 'in-app and web', 'enhanced chat')):
+        score += 12
+    if any(token in article_id for token in ('setup', 'optimize', 'allowlist', 'cors')) and any(token in lowered for token in ('allowed domains', 'cors', 'allowed origins', 'origin')):
+        score += 10
+    if 'release-notes' in article_id or article_id.startswith('release-notes.'):
+        score -= 12
+    if 'copilot' in article_id and 'agentforce' in lowered:
+        score += 8
+    if 'generative_ai' in article_id and any(token in lowered for token in ('agentforce', 'generative ai')):
+        score += 8
+    return score
+
+
+def build_help_guide(plan: Dict[str, Any], article_url: str) -> Dict[str, Any]:
+    product = plan.get('classification', {}).get('product') or 'platform'
+    return {
+        'slug': help_article_id(article_url),
+        'family': 'help',
+        'product': product,
+        'root_url': article_url,
+    }
+
+
+def scrape_help_article(query: str, plan: Dict[str, Any], article_url: str, crawl_children: bool = True) -> Optional[Dict[str, Any]]:
+    ok, payload = run_browser_scraper(article_url, timeout=60)
+    if not ok or help_article_missing(payload):
+        return None
+
+    guide = build_help_guide(plan, payload.get('url') or article_url)
+    result = evaluate_artifact(
+        query,
+        guide,
+        str(payload.get('text') or ''),
+        f"help_article:{payload.get('strategy', 'unknown')}",
+        payload.get('url') or article_url,
+    )
+
+    if not crawl_children:
+        return result
+
+    child_urls = help_article_urls_from_payload(payload)
+    child_urls.sort(key=lambda item: score_help_url(query, item), reverse=True)
+    best_result = result
+
+    should_crawl = bool(child_urls) and (
+        result.get('status') != 'pass'
+        or result.get('evidence_score', 0) < 18
+        or any(phrase in normalize_query(query) for phrase in ('allowed domains', 'allowed origins', 'cors allowlist', 'origin restrictions'))
+    )
+    if not should_crawl:
+        return result
+
+    for child_url in child_urls[:8]:
+        child = scrape_help_article(query, plan, child_url, crawl_children=False)
+        if not child:
+            continue
+        child['discovered_via'] = payload.get('url') or article_url
+        child_rank = 2 if child.get('status') == 'pass' else (1 if child.get('status') == 'partial' else 0)
+        best_rank = 2 if best_result.get('status') == 'pass' else (1 if best_result.get('status') == 'partial' else 0)
+        if (child_rank, child.get('evidence_score', 0)) > (best_rank, best_result.get('evidence_score', 0)):
+            best_result = child
+
+    return best_result
+
+
+def help_article_fallback(query: str, manifest: Dict[str, Any], plan: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    lowered = normalize_query(query)
+    likely_guides = [guide_by_slug(manifest, g.get('slug')) or g for g in plan.get('fallback', {}).get('likely_guides', [])]
+    urls: List[str] = []
+
+    for needle, hinted_urls in HELP_ARTICLE_HINTS.items():
+        if needle in lowered:
+            urls.extend(hinted_urls)
+
+    for payload in local_scrape_payloads(manifest, likely_guides):
+        urls.extend(help_article_urls_from_payload(payload))
+
+    for needle, source_urls in HELP_DISCOVERY_SOURCES.items():
+        if needle not in lowered:
+            continue
+        for source_url in source_urls:
+            ok, payload = run_browser_scraper(source_url, timeout=60)
+            if ok:
+                urls.extend(help_article_urls_from_payload(payload))
+
+    deduped: List[str] = []
+    seen = set()
+    for url in urls:
+        canonical = canonical_help_url(url)
+        if canonical not in seen:
+            seen.add(canonical)
+            deduped.append(canonical)
+
+    deduped.sort(key=lambda item: score_help_url(query, item), reverse=True)
+    best_partial: Optional[Dict[str, Any]] = None
+    for article_url in deduped[:10]:
+        result = scrape_help_article(query, plan, article_url, crawl_children=True)
+        if not result:
+            continue
+        if result.get('status') == 'pass':
+            return result
+        if result.get('status') == 'partial' and (
+            best_partial is None or result.get('evidence_score', 0) > best_partial.get('evidence_score', 0)
+        ):
+            best_partial = result
+    return best_partial
+
+
 def evaluate_artifact(query: str, guide: Dict[str, Any], text: str, method: str, source_url: str) -> Dict[str, Any]:
     evidence = evaluate_text_evidence(query, text, guide)
     fail_reasons = {'wrong_family_match', 'external_term_missing', 'missing_identifier', 'partial_identifier_match'}
@@ -272,6 +490,14 @@ def fallback_retrieve(query: str, manifest: Dict[str, Any], plan: Dict[str, Any]
     tried: List[str] = []
     best_partial: Optional[Dict[str, Any]] = None
 
+    if plan.get('fallback', {}).get('family_hint') == 'help':
+        help_result = help_article_fallback(query, manifest, plan)
+        if help_result:
+            help_result['tried'] = ['help-article-discovery']
+            if help_result.get('status') == 'pass':
+                return help_result
+            best_partial = help_result if help_result.get('status') == 'partial' else best_partial
+
     for candidate in likely_guides:
         slug = candidate.get('slug')
         guide = guide_by_slug(manifest, slug) or candidate
@@ -288,6 +514,8 @@ def fallback_retrieve(query: str, manifest: Dict[str, Any], plan: Dict[str, Any]
             best_partial = result
 
     if best_partial:
+        if 'tried' not in best_partial:
+            best_partial['tried'] = tried
         return best_partial
 
     return {

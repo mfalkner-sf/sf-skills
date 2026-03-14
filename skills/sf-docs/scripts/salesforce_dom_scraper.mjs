@@ -179,7 +179,11 @@ async function main() {
         'sign in',
         'cookie preferences',
         'skip to main content',
-      ].some(token => lowered.includes(token))
+        "we looked high and low",
+        "couldn't find that page",
+        'salesforce help | article',
+        '404 error',
+      ].some(token => lowered.includes(token) || title.toLowerCase().includes(token))
 
       return {
         url: window.location.href,
