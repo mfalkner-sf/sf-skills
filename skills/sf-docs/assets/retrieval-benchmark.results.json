@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "benchmark": "retrieval-benchmark.json",
   "generated_at": "2026-03-14T00:00:00Z",
   "modes": {
@@ -14,39 +14,87 @@
     {
       "id": "agentforce-authentication",
       "qmd_first": {
-        "status": "pass",
+        "status": "partial",
         "source_family": "platform",
+        "source_product": "agentforce",
         "guide": "agentforce-guide",
         "grounded": true,
+        "confidence": "low",
+        "evidence_score": 6,
+        "matched_terms": [
+          "agentforce"
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "agentforce"
+        ],
         "notes": "qmd_fallback:normalized_markdown",
-        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide"
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide",
+        "reasons": [
+          "status is partial"
+        ]
       },
       "no_qmd": {
-        "status": "pass",
+        "status": "partial",
         "source_family": "platform",
+        "source_product": "agentforce",
         "guide": "agentforce-guide",
         "grounded": true,
+        "confidence": "low",
+        "evidence_score": 6,
+        "matched_terms": [
+          "agentforce"
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "agentforce"
+        ],
         "notes": "normalized_markdown",
-        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide"
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide",
+        "reasons": [
+          "status is partial"
+        ]
       }
     },
     {
       "id": "messaging-domain-security",
       "qmd_first": {
-        "status": "partial",
-        "source_family": "atlas",
+        "status": "fail",
+        "source_family": "help",
+        "source_product": null,
         "guide": "object_reference",
-        "grounded": true,
-        "notes": "qmd_fallback:normalized_markdown",
-        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf"
+        "grounded": false,
+        "confidence": "low",
+        "evidence_score": 0,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "qmd_fallback:fallback_failed",
+        "source_url": "https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/",
+        "reasons": [
+          "status is fail"
+        ]
       },
       "no_qmd": {
-        "status": "partial",
-        "source_family": "atlas",
+        "status": "fail",
+        "source_family": "help",
+        "source_product": null,
         "guide": "object_reference",
-        "grounded": true,
-        "notes": "normalized_markdown",
-        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf"
+        "grounded": false,
+        "confidence": "low",
+        "evidence_score": 0,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "fallback_failed",
+        "source_url": "https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/",
+        "reasons": [
+          "status is fail"
+        ]
       }
     },
     {
@@ -54,18 +102,272 @@
       "qmd_first": {
         "status": "pass",
         "source_family": "atlas",
+        "source_product": "apex",
         "guide": "apexcode",
         "grounded": true,
-        "notes": "qmd_fallback:normalized_markdown",
-        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf"
+        "confidence": "high",
+        "evidence_score": 24,
+        "matched_terms": [
+          "system.stubprovider",
+          "apex",
+          "tests."
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [
+          "system.stubprovider",
+          "stubprovider"
+        ],
+        "matched_evidence": [
+          "system.stubprovider",
+          "stubprovider",
+          "apex",
+          "tests."
+        ],
+        "notes": "qmd_error_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf",
+        "reasons": []
       },
       "no_qmd": {
         "status": "pass",
         "source_family": "atlas",
+        "source_product": "apex",
         "guide": "apexcode",
         "grounded": true,
+        "confidence": "high",
+        "evidence_score": 24,
+        "matched_terms": [
+          "system.stubprovider",
+          "apex",
+          "tests."
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [
+          "system.stubprovider",
+          "stubprovider"
+        ],
+        "matched_evidence": [
+          "system.stubprovider",
+          "stubprovider",
+          "apex",
+          "tests."
+        ],
         "notes": "normalized_markdown",
-        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf"
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf",
+        "reasons": []
+      }
+    },
+    {
+      "id": "apex-queueablecontext-reference",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "apex",
+        "guide": "apexref",
+        "grounded": true,
+        "confidence": "high",
+        "evidence_score": 10,
+        "matched_terms": [
+          "apex",
+          "queueablecontext."
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [
+          "queueablecontext"
+        ],
+        "matched_evidence": [
+          "queueablecontext",
+          "apex",
+          "queueablecontext."
+        ],
+        "notes": "qmd_search",
+        "source_url": "https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/",
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "apex",
+        "guide": "apexcode",
+        "grounded": true,
+        "confidence": "high",
+        "evidence_score": 14,
+        "matched_terms": [
+          "apex"
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [
+          "queueablecontext"
+        ],
+        "matched_evidence": [
+          "queueablecontext",
+          "apex"
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf",
+        "reasons": []
+      }
+    },
+    {
+      "id": "apex-test-setmock",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "apex",
+        "guide": "apexcode",
+        "grounded": true,
+        "confidence": "high",
+        "evidence_score": 15,
+        "matched_terms": [
+          "apex",
+          "test.setmock."
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [
+          "test.setmock"
+        ],
+        "matched_evidence": [
+          "test.setmock",
+          "apex",
+          "test.setmock."
+        ],
+        "notes": "qmd_error_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf",
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "apex",
+        "guide": "apexcode",
+        "grounded": true,
+        "confidence": "high",
+        "evidence_score": 15,
+        "matched_terms": [
+          "apex",
+          "test.setmock."
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [
+          "test.setmock"
+        ],
+        "matched_evidence": [
+          "test.setmock",
+          "apex",
+          "test.setmock."
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf",
+        "reasons": []
+      }
+    },
+    {
+      "id": "apex-database-querylocator",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "apex",
+        "guide": "apexcode",
+        "grounded": true,
+        "confidence": "high",
+        "evidence_score": 23,
+        "matched_terms": [
+          "apex",
+          "database.querylocator."
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [
+          "database.querylocator",
+          "querylocator"
+        ],
+        "matched_evidence": [
+          "database.querylocator",
+          "querylocator",
+          "apex",
+          "database.querylocator."
+        ],
+        "notes": "qmd_error_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf",
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "apex",
+        "guide": "apexcode",
+        "grounded": true,
+        "confidence": "high",
+        "evidence_score": 23,
+        "matched_terms": [
+          "apex",
+          "database.querylocator."
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [
+          "database.querylocator",
+          "querylocator"
+        ],
+        "matched_evidence": [
+          "database.querylocator",
+          "querylocator",
+          "apex",
+          "database.querylocator."
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf",
+        "reasons": []
+      }
+    },
+    {
+      "id": "schema-describesobjectresult",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "apex",
+        "guide": "apexcode",
+        "grounded": true,
+        "confidence": "high",
+        "evidence_score": 22,
+        "matched_terms": [
+          "apex"
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [
+          "schema.describesobjectresult",
+          "describesobjectresult"
+        ],
+        "matched_evidence": [
+          "schema.describesobjectresult",
+          "describesobjectresult",
+          "apex"
+        ],
+        "notes": "qmd_error_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf",
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "apex",
+        "guide": "apexcode",
+        "grounded": true,
+        "confidence": "high",
+        "evidence_score": 22,
+        "matched_terms": [
+          "apex"
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [
+          "schema.describesobjectresult",
+          "describesobjectresult"
+        ],
+        "matched_evidence": [
+          "schema.describesobjectresult",
+          "describesobjectresult",
+          "apex"
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf",
+        "reasons": []
       }
     },
     {
@@ -73,18 +375,145 @@
       "qmd_first": {
         "status": "pass",
         "source_family": "atlas",
+        "source_product": "api",
         "guide": "api_rest",
         "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 20,
+        "matched_terms": [
+          "rest",
+          "api",
+          "authentication",
+          "requirements",
+          "bearer",
+          "token",
+          "usage."
+        ],
+        "matched_phrases": [
+          "rest api",
+          "bearer token"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "rest api",
+          "bearer token",
+          "rest",
+          "api",
+          "authentication",
+          "requirements",
+          "bearer",
+          "token",
+          "usage."
+        ],
         "notes": "qmd_fallback:normalized_markdown",
-        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_rest.pdf"
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_rest.pdf",
+        "reasons": []
       },
       "no_qmd": {
         "status": "pass",
         "source_family": "atlas",
+        "source_product": "api",
         "guide": "api_rest",
         "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 20,
+        "matched_terms": [
+          "rest",
+          "api",
+          "authentication",
+          "requirements",
+          "bearer",
+          "token",
+          "usage."
+        ],
+        "matched_phrases": [
+          "rest api",
+          "bearer token"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "rest api",
+          "bearer token",
+          "rest",
+          "api",
+          "authentication",
+          "requirements",
+          "bearer",
+          "token",
+          "usage."
+        ],
         "notes": "normalized_markdown",
-        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_rest.pdf"
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_rest.pdf",
+        "reasons": []
+      }
+    },
+    {
+      "id": "rest-api-compression-headers",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "api",
+        "guide": "api_rest",
+        "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 13,
+        "matched_terms": [
+          "rest",
+          "api",
+          "compression",
+          "headers",
+          "request",
+          "headers."
+        ],
+        "matched_phrases": [
+          "rest api"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "rest api",
+          "rest",
+          "api",
+          "compression",
+          "headers",
+          "request",
+          "headers."
+        ],
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_rest.pdf",
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "api",
+        "guide": "api_rest",
+        "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 13,
+        "matched_terms": [
+          "rest",
+          "api",
+          "compression",
+          "headers",
+          "request",
+          "headers."
+        ],
+        "matched_phrases": [
+          "rest api"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "rest api",
+          "rest",
+          "api",
+          "compression",
+          "headers",
+          "request",
+          "headers."
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_rest.pdf",
+        "reasons": []
       }
     },
     {
@@ -92,18 +521,129 @@
       "qmd_first": {
         "status": "pass",
         "source_family": "atlas",
+        "source_product": "metadata",
         "guide": "api_meta",
         "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 11,
+        "matched_terms": [
+          "metadata",
+          "api",
+          "deploy",
+          "retrieve"
+        ],
+        "matched_phrases": [
+          "metadata api"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "metadata api",
+          "metadata",
+          "api",
+          "deploy",
+          "retrieve"
+        ],
         "notes": "qmd_fallback:normalized_markdown",
-        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_meta.pdf"
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_meta.pdf",
+        "reasons": []
       },
       "no_qmd": {
         "status": "pass",
         "source_family": "atlas",
+        "source_product": "metadata",
         "guide": "api_meta",
         "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 11,
+        "matched_terms": [
+          "metadata",
+          "api",
+          "deploy",
+          "retrieve"
+        ],
+        "matched_phrases": [
+          "metadata api"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "metadata api",
+          "metadata",
+          "api",
+          "deploy",
+          "retrieve"
+        ],
         "notes": "normalized_markdown",
-        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_meta.pdf"
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_meta.pdf",
+        "reasons": []
+      }
+    },
+    {
+      "id": "metadata-api-retrieve",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "metadata",
+        "guide": "api_meta",
+        "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 13,
+        "matched_terms": [
+          "metadata",
+          "api",
+          "retrieve",
+          "behavior",
+          "retrieveresult",
+          "handling."
+        ],
+        "matched_phrases": [
+          "metadata api"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "metadata api",
+          "metadata",
+          "api",
+          "retrieve",
+          "behavior",
+          "retrieveresult",
+          "handling."
+        ],
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_meta.pdf",
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "atlas",
+        "source_product": "metadata",
+        "guide": "api_meta",
+        "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 13,
+        "matched_terms": [
+          "metadata",
+          "api",
+          "retrieve",
+          "behavior",
+          "retrieveresult",
+          "handling."
+        ],
+        "matched_phrases": [
+          "metadata api"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "metadata api",
+          "metadata",
+          "api",
+          "retrieve",
+          "behavior",
+          "retrieveresult",
+          "handling."
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_meta.pdf",
+        "reasons": []
       }
     },
     {
@@ -111,37 +651,385 @@
       "qmd_first": {
         "status": "pass",
         "source_family": "atlas",
+        "source_product": "platform",
         "guide": "object_reference",
         "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 15,
+        "matched_terms": [
+          "object",
+          "reference",
+          "account",
+          "standard",
+          "metadata",
+          "lookup."
+        ],
+        "matched_phrases": [
+          "object reference",
+          "standard object"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "object reference",
+          "standard object",
+          "object",
+          "reference",
+          "account",
+          "standard",
+          "metadata",
+          "lookup."
+        ],
         "notes": "qmd_fallback:normalized_markdown",
-        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf"
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf",
+        "reasons": []
       },
       "no_qmd": {
         "status": "pass",
         "source_family": "atlas",
+        "source_product": "platform",
         "guide": "object_reference",
         "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 15,
+        "matched_terms": [
+          "object",
+          "reference",
+          "account",
+          "standard",
+          "metadata",
+          "lookup."
+        ],
+        "matched_phrases": [
+          "object reference",
+          "standard object"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "object reference",
+          "standard object",
+          "object",
+          "reference",
+          "account",
+          "standard",
+          "metadata",
+          "lookup."
+        ],
         "notes": "normalized_markdown",
-        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf"
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf",
+        "reasons": []
+      }
+    },
+    {
+      "id": "object-reference-case",
+      "qmd_first": {
+        "status": "partial",
+        "source_family": "atlas",
+        "source_product": "platform",
+        "guide": "object_reference",
+        "grounded": true,
+        "confidence": "low",
+        "evidence_score": 10,
+        "matched_terms": [
+          "object",
+          "reference",
+          "case."
+        ],
+        "matched_phrases": [
+          "object reference"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "object reference",
+          "object",
+          "reference",
+          "case."
+        ],
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf",
+        "reasons": [
+          "status is partial"
+        ]
+      },
+      "no_qmd": {
+        "status": "partial",
+        "source_family": "atlas",
+        "source_product": "platform",
+        "guide": "object_reference",
+        "grounded": true,
+        "confidence": "low",
+        "evidence_score": 10,
+        "matched_terms": [
+          "object",
+          "reference",
+          "case."
+        ],
+        "matched_phrases": [
+          "object reference"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "object reference",
+          "object",
+          "reference",
+          "case."
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf",
+        "reasons": [
+          "status is partial"
+        ]
+      }
+    },
+    {
+      "id": "object-reference-opportunity",
+      "qmd_first": {
+        "status": "partial",
+        "source_family": "atlas",
+        "source_product": "platform",
+        "guide": "object_reference",
+        "grounded": true,
+        "confidence": "low",
+        "evidence_score": 10,
+        "matched_terms": [
+          "object",
+          "reference",
+          "opportunity."
+        ],
+        "matched_phrases": [
+          "object reference"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "object reference",
+          "object",
+          "reference",
+          "opportunity."
+        ],
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf",
+        "reasons": [
+          "status is partial"
+        ]
+      },
+      "no_qmd": {
+        "status": "partial",
+        "source_family": "atlas",
+        "source_product": "platform",
+        "guide": "object_reference",
+        "grounded": true,
+        "confidence": "low",
+        "evidence_score": 10,
+        "matched_terms": [
+          "object",
+          "reference",
+          "opportunity."
+        ],
+        "matched_phrases": [
+          "object reference"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "object reference",
+          "object",
+          "reference",
+          "opportunity."
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf",
+        "reasons": [
+          "status is partial"
+        ]
       }
     },
     {
       "id": "lwc-wire-guide",
       "qmd_first": {
-        "status": "pass",
+        "status": "partial",
         "source_family": "platform",
+        "source_product": "lwc",
         "guide": "lwc",
         "grounded": true,
+        "confidence": "low",
+        "evidence_score": 10,
+        "matched_terms": [
+          "lightning",
+          "web",
+          "components"
+        ],
+        "matched_phrases": [
+          "lightning web components"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "lightning web components",
+          "lightning",
+          "web",
+          "components"
+        ],
         "notes": "qmd_fallback:normalized_markdown",
-        "source_url": "https://developer.salesforce.com/docs/platform/lwc/guide"
+        "source_url": "https://developer.salesforce.com/docs/platform/lwc/guide",
+        "reasons": [
+          "status is partial"
+        ]
       },
       "no_qmd": {
-        "status": "pass",
+        "status": "partial",
         "source_family": "platform",
+        "source_product": "lwc",
         "guide": "lwc",
         "grounded": true,
+        "confidence": "low",
+        "evidence_score": 10,
+        "matched_terms": [
+          "lightning",
+          "web",
+          "components"
+        ],
+        "matched_phrases": [
+          "lightning web components"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "lightning web components",
+          "lightning",
+          "web",
+          "components"
+        ],
         "notes": "normalized_markdown",
-        "source_url": "https://developer.salesforce.com/docs/platform/lwc/guide"
+        "source_url": "https://developer.salesforce.com/docs/platform/lwc/guide",
+        "reasons": [
+          "status is partial"
+        ]
+      }
+    },
+    {
+      "id": "lwc-lightning-message-service",
+      "qmd_first": {
+        "status": "partial",
+        "source_family": "platform",
+        "source_product": "lwc",
+        "guide": "lwc",
+        "grounded": true,
+        "confidence": "low",
+        "evidence_score": 10,
+        "matched_terms": [
+          "lightning",
+          "web",
+          "components"
+        ],
+        "matched_phrases": [
+          "lightning web components"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "lightning web components",
+          "lightning",
+          "web",
+          "components"
+        ],
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/platform/lwc/guide",
+        "reasons": [
+          "status is partial"
+        ]
+      },
+      "no_qmd": {
+        "status": "partial",
+        "source_family": "platform",
+        "source_product": "lwc",
+        "guide": "lwc",
+        "grounded": true,
+        "confidence": "low",
+        "evidence_score": 10,
+        "matched_terms": [
+          "lightning",
+          "web",
+          "components"
+        ],
+        "matched_phrases": [
+          "lightning web components"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "lightning web components",
+          "lightning",
+          "web",
+          "components"
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/platform/lwc/guide",
+        "reasons": [
+          "status is partial"
+        ]
+      }
+    },
+    {
+      "id": "lwc-base-components",
+      "qmd_first": {
+        "status": "partial",
+        "source_family": "platform",
+        "source_product": "lwc",
+        "guide": "lwc",
+        "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 12,
+        "matched_terms": [
+          "lightning",
+          "web",
+          "components",
+          "base",
+          "components."
+        ],
+        "matched_phrases": [
+          "lightning web components"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "lightning web components",
+          "lightning",
+          "web",
+          "components",
+          "base",
+          "components."
+        ],
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/platform/lwc/guide",
+        "reasons": [
+          "missing any-of evidence terms ['base components']"
+        ]
+      },
+      "no_qmd": {
+        "status": "partial",
+        "source_family": "platform",
+        "source_product": "lwc",
+        "guide": "lwc",
+        "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 12,
+        "matched_terms": [
+          "lightning",
+          "web",
+          "components",
+          "base",
+          "components."
+        ],
+        "matched_phrases": [
+          "lightning web components"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "lightning web components",
+          "lightning",
+          "web",
+          "components",
+          "base",
+          "components."
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/platform/lwc/guide",
+        "reasons": [
+          "missing any-of evidence terms ['base components']"
+        ]
       }
     },
     {
@@ -149,18 +1037,158 @@
       "qmd_first": {
         "status": "pass",
         "source_family": "platform",
+        "source_product": "agentforce",
         "guide": "agentforce-guide",
         "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 14,
+        "matched_terms": [
+          "agentforce",
+          "agent",
+          "script"
+        ],
+        "matched_phrases": [
+          "agent script"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "agent script",
+          "agentforce",
+          "agent",
+          "script"
+        ],
         "notes": "qmd_fallback:normalized_markdown",
-        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide"
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide",
+        "reasons": []
       },
       "no_qmd": {
         "status": "pass",
         "source_family": "platform",
+        "source_product": "agentforce",
         "guide": "agentforce-guide",
         "grounded": true,
+        "confidence": "medium",
+        "evidence_score": 14,
+        "matched_terms": [
+          "agentforce",
+          "agent",
+          "script"
+        ],
+        "matched_phrases": [
+          "agent script"
+        ],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "agent script",
+          "agentforce",
+          "agent",
+          "script"
+        ],
         "notes": "normalized_markdown",
-        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide"
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide",
+        "reasons": []
+      }
+    },
+    {
+      "id": "agentforce-prompt-templates-models",
+      "qmd_first": {
+        "status": "partial",
+        "source_family": "platform",
+        "source_product": "agentforce",
+        "guide": "agentforce-guide",
+        "grounded": true,
+        "confidence": "low",
+        "evidence_score": 8,
+        "matched_terms": [
+          "prompt",
+          "templates",
+          "models"
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "prompt",
+          "templates",
+          "models"
+        ],
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide",
+        "reasons": [
+          "status is partial"
+        ]
+      },
+      "no_qmd": {
+        "status": "partial",
+        "source_family": "platform",
+        "source_product": "agentforce",
+        "guide": "agentforce-guide",
+        "grounded": true,
+        "confidence": "low",
+        "evidence_score": 8,
+        "matched_terms": [
+          "prompt",
+          "templates",
+          "models"
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "prompt",
+          "templates",
+          "models"
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide",
+        "reasons": [
+          "status is partial"
+        ]
+      }
+    },
+    {
+      "id": "agentforce-actions-guide",
+      "qmd_first": {
+        "status": "partial",
+        "source_family": "platform",
+        "source_product": "agentforce",
+        "guide": "agentforce-guide",
+        "grounded": true,
+        "confidence": "low",
+        "evidence_score": 6,
+        "matched_terms": [
+          "agentforce"
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "agentforce"
+        ],
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide",
+        "reasons": [
+          "status is partial"
+        ]
+      },
+      "no_qmd": {
+        "status": "partial",
+        "source_family": "platform",
+        "source_product": "agentforce",
+        "guide": "agentforce-guide",
+        "grounded": true,
+        "confidence": "low",
+        "evidence_score": 6,
+        "matched_terms": [
+          "agentforce"
+        ],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [
+          "agentforce"
+        ],
+        "notes": "normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide",
+        "reasons": [
+          "status is partial"
+        ]
       }
     }
   ]

@@ -91,18 +91,28 @@ python3 skills/sf-docs/scripts/cli.py retrieve \
   --mode qmd_first
 ```
 
-### Execute the benchmark and write results
+### Execute the core benchmark and write results
 
 ```bash
 python3 skills/sf-docs/scripts/cli.py run-benchmark \
-  --results skills/sf-docs/assets/retrieval-benchmark.results-template.json
+  --benchmark skills/sf-docs/assets/retrieval-benchmark.json \
+  --results skills/sf-docs/assets/retrieval-benchmark.results.json
+```
+
+### Execute the robustness benchmark
+
+```bash
+python3 skills/sf-docs/scripts/cli.py run-benchmark \
+  --benchmark skills/sf-docs/assets/retrieval-benchmark.robustness.json \
+  --results skills/sf-docs/assets/retrieval-benchmark.robustness.results.json
 ```
 
 ### Score retrieval benchmark results
 
 ```bash
 python3 skills/sf-docs/scripts/cli.py score-benchmark \
-  --results skills/sf-docs/assets/retrieval-benchmark.results-template.json
+  --benchmark skills/sf-docs/assets/retrieval-benchmark.json \
+  --results skills/sf-docs/assets/retrieval-benchmark.results.json
 ```
 
 > See [references/cli-workflow.md](./references/cli-workflow.md) for the recommended operator sequence.

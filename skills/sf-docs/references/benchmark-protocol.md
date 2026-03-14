@@ -12,15 +12,17 @@ This document defines how to validate `sf-docs` in both runtime modes.
    - Salesforce-aware retrieval only
    - no local indexed corpus available
 
-## Benchmark Asset
+## Benchmark Assets
 
-Use:
+Use the **core grounding benchmark** for normal retrieval quality:
 
 - [assets/retrieval-benchmark.json](../assets/retrieval-benchmark.json)
-
-Use the companion results template:
-
 - [assets/retrieval-benchmark.results-template.json](../assets/retrieval-benchmark.results-template.json)
+
+Use the **robustness benchmark** for negative cases and wrong-guide rejection:
+
+- [assets/retrieval-benchmark.robustness.json](../assets/retrieval-benchmark.robustness.json)
+- [assets/retrieval-benchmark.robustness.results-template.json](../assets/retrieval-benchmark.robustness.results-template.json)
 
 Score results with:
 
@@ -31,9 +33,12 @@ Score results with:
 A benchmark case passes when:
 
 - the retrieval outcome is marked `pass`
-- the answer is grounded on an official Salesforce source
+- the answer is grounded on an official Salesforce source when the expected outcome is a grounded hit
 - the source family matches the benchmark expectation
+- the product matches when the benchmark specifies a product
 - the guide matches the expected guide when a guide is specified
+- required evidence terms or identifiers are actually present
+- negative / reject cases avoid returning a confident grounded answer from the wrong official guide
 
 ## Suggested Status Values
 

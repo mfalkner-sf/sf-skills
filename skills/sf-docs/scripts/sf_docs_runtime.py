@@ -7,9 +7,7 @@ Provides lightweight, stdlib-only utilities for:
 - classifying likely Salesforce doc families
 - evaluating qmd result strength
 - building a sequential qmd-first / scrape-fallback lookup plan
-
-This script does not fetch or scrape content itself. It helps `sf-docs` decide
-how to retrieve documentation for a given query.
+- extracting evidence from candidate docs so broad wrong-guide matches are rejected
 
 Examples:
   python3 sf_docs_runtime.py diagnose \
@@ -41,18 +39,71 @@ HIGH_SIGNAL_KEYWORDS = {
     "agentforce": {"family": "platform", "product": "agentforce"},
     "agent script": {"family": "platform", "product": "agentforce"},
     "atlas reasoning": {"family": "platform", "product": "agentforce"},
+    "prompt template": {"family": "platform", "product": "agentforce"},
+    "models api": {"family": "platform", "product": "agentforce"},
     "lwc": {"family": "platform", "product": "lwc"},
     "lightning web components": {"family": "platform", "product": "lwc"},
     "wire service": {"family": "platform", "product": "lwc"},
+    "wire adapters": {"family": "platform", "product": "lwc"},
+    "lightning message service": {"family": "platform", "product": "lwc"},
     "apex": {"family": "atlas", "product": "apex"},
     "stubprovider": {"family": "atlas", "product": "apex"},
+    "queueable": {"family": "atlas", "product": "apex"},
     "rest api": {"family": "atlas", "product": "api"},
+    "oauth": {"family": "atlas", "product": "api"},
+    "bearer token": {"family": "atlas", "product": "api"},
     "metadata api": {"family": "atlas", "product": "metadata"},
+    "deploy": {"family": "atlas", "product": "metadata"},
+    "retrieve": {"family": "atlas", "product": "metadata"},
     "object reference": {"family": "atlas", "product": "platform"},
+    "standard object": {"family": "atlas", "product": "platform"},
     "help.salesforce.com": {"family": "help", "product": "platform"},
     "setup": {"family": "help", "product": "platform"},
     "messaging": {"family": "help", "product": "platform"},
+    "allowed domains": {"family": "help", "product": "platform"},
     "cors": {"family": "help", "product": "platform"},
+    "origin restrictions": {"family": "help", "product": "platform"},
+}
+
+COMMON_PHRASES = [
+    "wire service",
+    "wire adapters",
+    "bearer token",
+    "authorization header",
+    "allowed domains",
+    "origin restrictions",
+    "embedded deployment",
+    "deployment security",
+    "identity verification",
+    "lightning message service",
+    "standard object",
+    "object reference",
+    "agent script",
+    "prompt template",
+    "models api",
+]
+
+GENERIC_PRODUCT_PHRASES = {
+    "agentforce",
+    "lightning web components",
+    "rest api",
+    "metadata api",
+    "object reference",
+    "standard object",
+    "apex",
+}
+
+STOP_WORDS = {
+    "find", "official", "salesforce", "documentation", "docs", "about",
+    "explain", "guide", "guidance", "lookup", "look", "using", "with",
+    "when", "where", "what", "which", "their", "they", "them", "from",
+    "that", "this", "into", "your", "how", "and", "for", "the", "use",
+    "used", "should", "does", "developer", "developers",
+}
+
+EXTERNAL_VENDOR_TERMS = {
+    "stripe", "sap", "bapi", "shopify", "slack", "zendesk", "servicenow",
+    "jira", "confluence", "docusign", "hubspot",
 }
 
 
@@ -98,28 +149,58 @@ def normalize_query(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
 
 
+def unique_preserve(values: Iterable[str]) -> List[str]:
+    seen = set()
+    out: List[str] = []
+    for value in values:
+        if not value:
+            continue
+        normalized = value.strip().lower()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        out.append(normalized)
+    return out
+
+
 def extract_terms(query: str) -> List[str]:
     lowered = normalize_query(query)
-    quoted = re.findall(r'"([^"]+)"', query)
-    if quoted:
-        return [q.lower() for q in quoted if q.strip()]
-
     raw_terms = re.findall(r"[A-Za-z][A-Za-z0-9_.:-]{2,}", lowered)
-    stop = {
-        "find", "official", "salesforce", "documentation", "docs", "about",
-        "explain", "guide", "guidance", "lookup", "look", "using", "with",
-        "when", "where", "what", "which", "their", "they", "them", "from",
-    }
-    return [t for t in raw_terms if t not in stop][:8]
+    terms = [t for t in raw_terms if t not in STOP_WORDS]
+    return unique_preserve(terms)[:12]
+
+
+def extract_identifiers(query: str) -> List[str]:
+    identifiers: List[str] = []
+    identifiers.extend(re.findall(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+", query))
+    identifiers.extend(re.findall(r"\b[A-Z][a-z0-9]+(?:[A-Z][A-Za-z0-9_]*)+\b", query))
+    return unique_preserve(identifiers)
+
+
+def extract_phrases(query: str) -> List[str]:
+    lowered = normalize_query(query)
+    phrases: List[str] = []
+    phrases.extend(re.findall(r'"([^"]+)"', query))
+    phrases.extend([key for key in HIGH_SIGNAL_KEYWORDS if key in lowered and " " in key])
+    phrases.extend([phrase for phrase in COMMON_PHRASES if phrase in lowered])
+    return unique_preserve(phrases)
 
 
 def classify_query(query: str) -> Dict[str, Optional[str]]:
     lowered = normalize_query(query)
     best: Dict[str, Optional[str]] = {"family": None, "product": None, "keyword": None}
+    best_score = 0
+
     for key, meta in HIGH_SIGNAL_KEYWORDS.items():
         if key in lowered:
-            best = {"family": meta["family"], "product": meta["product"], "keyword": key}
-            break
+            score = max(1, len(key.split())) * 2 + len(key)
+            if score > best_score:
+                best_score = score
+                best = {"family": meta["family"], "product": meta["product"], "keyword": key}
+
+    if not best["family"] and any(term in lowered for term in ("system.", "database.", "schema.", "test.")):
+        best = {"family": "atlas", "product": "apex", "keyword": "apex-identifier"}
+
     return best
 
 
@@ -131,6 +212,15 @@ def manifest_guides(manifest_path: Optional[Path]) -> List[Dict[str, Any]]:
     return data.get("guides", [])
 
 
+def build_query_signature(query: str) -> Dict[str, Any]:
+    return {
+        "terms": extract_terms(query),
+        "identifiers": extract_identifiers(query),
+        "phrases": extract_phrases(query),
+        "classification": classify_query(query),
+    }
+
+
 def score_guide(query: str, guide: Dict[str, Any], classification: Dict[str, Optional[str]]) -> int:
     score = 0
     lowered = normalize_query(query)
@@ -138,24 +228,41 @@ def score_guide(query: str, guide: Dict[str, Any], classification: Dict[str, Opt
     slug = normalize_query(guide.get("slug", ""))
     product = normalize_query(guide.get("product", ""))
     family = normalize_query(guide.get("family", ""))
+    root_url = normalize_query(guide.get("root_url", ""))
+
+    for identifier in extract_identifiers(query):
+        if identifier in title:
+            score += 8
+        if identifier in slug:
+            score += 7
+
+    for phrase in extract_phrases(query):
+        if phrase in title:
+            score += 6
+        if phrase in slug:
+            score += 5
+        if phrase in root_url:
+            score += 4
 
     for term in extract_terms(query):
         if term in title:
             score += 4
         if term in slug:
             score += 4
+        if term in root_url:
+            score += 2
 
     if classification.get("product") and classification["product"] == product:
-        score += 5
+        score += 6
     if classification.get("family") and classification["family"] == family:
-        score += 3
+        score += 4
     if classification.get("keyword") and classification["keyword"] in title:
         score += 5
 
     if "reference" in lowered and "reference" in title:
-        score += 2
+        score += 3
     if "developer guide" in title and "guide" in lowered:
-        score += 1
+        score += 2
     return score
 
 
@@ -175,7 +282,7 @@ def likely_guides(query: str, manifest_path: Optional[Path], limit: int = 5) -> 
 
 
 def build_qmd_command(query: str, limit: int = 8) -> str:
-    return f"qmd query --json -n {limit} {shlex.quote(query)}"
+    return f"qmd search --json -n {limit} {shlex.quote(query)}"
 
 
 def qmd_results_from_file(path: Path) -> List[Dict[str, Any]]:
@@ -194,7 +301,7 @@ def result_text(result: Dict[str, Any]) -> str:
     for key in ("title", "snippet", "path", "displayPath", "context", "text"):
         value = result.get(key)
         if isinstance(value, str):
-            pieces.append(value.lower())
+            pieces.append(value)
     return "\n".join(pieces)
 
 
@@ -206,58 +313,176 @@ def extract_score(result: Dict[str, Any]) -> Optional[float]:
     return None
 
 
-def evaluate_qmd_results(query: str, results: List[Dict[str, Any]], min_score: float = 0.35) -> Dict[str, Any]:
+def _contains_evidence(searchable: str, needle: str) -> bool:
+    normalized = normalize_query(needle)
+    if not normalized:
+        return False
+    pattern = r"(?<![a-z0-9_])" + re.escape(normalized) + r"(?![a-z0-9_])"
+    return re.search(pattern, searchable) is not None
+
+
+def evaluate_text_evidence(query: str, text: str, guide: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    searchable = normalize_query(text)
+    signature = build_query_signature(query)
+    matched_identifiers = [identifier for identifier in signature["identifiers"] if _contains_evidence(searchable, identifier)]
+    matched_phrases = [phrase for phrase in signature["phrases"] if _contains_evidence(searchable, phrase)]
+    matched_terms = [term for term in signature["terms"] if _contains_evidence(searchable, term)]
+    specific_phrases = [phrase for phrase in signature["phrases"] if phrase not in GENERIC_PRODUCT_PHRASES]
+    matched_specific_phrases = [phrase for phrase in matched_phrases if phrase not in GENERIC_PRODUCT_PHRASES]
+    external_terms = [term for term in signature["terms"] if term in EXTERNAL_VENDOR_TERMS]
+    matched_external_terms = [term for term in external_terms if term in searchable]
+
+    score = 0
+    score += len(matched_identifiers) * 8
+    score += len(matched_specific_phrases) * 6
+    score += (len(matched_phrases) - len(matched_specific_phrases)) * 2
+    score += len(matched_terms) * 1
+
+    classification = signature["classification"]
+    family_match = None
+    product_match = None
+    if guide:
+        family = normalize_query(guide.get("family", ""))
+        product = normalize_query(guide.get("product", ""))
+        family_match = bool(classification.get("family") and classification["family"] == family)
+        product_match = bool(classification.get("product") and classification["product"] == product)
+        if family_match:
+            score += 2
+        if product_match:
+            score += 3
+
+    confidence = "low"
+    acceptable = False
+    reason = "no_evidence"
+
+    identifier_count = len(signature["identifiers"])
+    if matched_identifiers and (identifier_count <= 1 or len(matched_identifiers) == identifier_count):
+        confidence = "high"
+        acceptable = True
+        reason = "identifier_match"
+    elif matched_identifiers and identifier_count > 1:
+        confidence = "low"
+        acceptable = False
+        reason = "partial_identifier_match"
+    elif signature["identifiers"]:
+        confidence = "low"
+        acceptable = False
+        reason = "missing_identifier"
+    elif matched_specific_phrases and (
+        product_match or (
+            not classification.get("product") and (family_match or not classification.get("family"))
+        )
+    ):
+        confidence = "high" if len(matched_specific_phrases) >= 2 else "medium"
+        acceptable = True
+        reason = "specific_phrase_match"
+    elif specific_phrases and not matched_specific_phrases:
+        confidence = "low"
+        acceptable = False
+        reason = "missing_specific_phrase"
+    elif len(matched_terms) >= 4 and (
+        product_match or (
+            not classification.get("product") and (family_match or product_match)
+        )
+    ):
+        confidence = "medium"
+        acceptable = True
+        reason = "dense_term_match"
+    elif matched_terms:
+        confidence = "low"
+        reason = "weak_term_overlap"
+
+    if external_terms and not matched_external_terms and not matched_identifiers:
+        acceptable = False
+        confidence = "low"
+        reason = "external_term_missing"
+
+    if guide and classification.get("family") and family_match is False and not matched_identifiers:
+        acceptable = False
+        confidence = "low"
+        reason = "wrong_family_match"
+
+    return {
+        "acceptable": acceptable,
+        "confidence": confidence,
+        "reason": reason,
+        "score": score,
+        "matched_identifiers": matched_identifiers,
+        "matched_phrases": matched_phrases,
+        "matched_terms": matched_terms,
+        "matched_evidence": unique_preserve(matched_identifiers + matched_phrases + matched_terms),
+        "family_match": family_match,
+        "product_match": product_match,
+    }
+
+
+def evaluate_qmd_results(query: str, results: List[Dict[str, Any]], min_score: float = 0.2) -> Dict[str, Any]:
     if not results:
         return {
             "strong": False,
             "reason": "no_results",
             "matched_terms": [],
+            "matched_phrases": [],
+            "matched_identifiers": [],
+            "matched_evidence": [],
             "max_score": None,
+            "best_index": None,
+            "best_evidence_score": 0,
         }
 
-    terms = extract_terms(query)
-    term_matches: List[str] = []
     max_score: Optional[float] = None
-    top = results[:5]
+    best_index: Optional[int] = None
+    best_evidence: Optional[Dict[str, Any]] = None
 
-    for result in top:
+    for idx, result in enumerate(results[:5]):
         text = result_text(result)
-        for term in terms:
-            if term not in term_matches and term in text:
-                term_matches.append(term)
+        evidence = evaluate_text_evidence(query, text)
+        evidence_score = evidence["score"]
         score = extract_score(result)
         if score is not None:
             max_score = score if max_score is None else max(max_score, score)
+        if best_evidence is None or evidence_score > best_evidence["score"]:
+            best_evidence = evidence
+            best_index = idx
 
-    if max_score is not None and max_score < min_score:
+    assert best_evidence is not None
+
+    if max_score is not None and max_score < min_score and not best_evidence["acceptable"]:
         return {
             "strong": False,
-            "reason": "low_score",
-            "matched_terms": term_matches,
+            "reason": "low_score_and_weak_evidence",
+            "matched_terms": best_evidence["matched_terms"],
+            "matched_phrases": best_evidence["matched_phrases"],
+            "matched_identifiers": best_evidence["matched_identifiers"],
+            "matched_evidence": best_evidence["matched_evidence"],
             "max_score": max_score,
+            "best_index": best_index,
+            "best_evidence_score": best_evidence["score"],
         }
 
-    if terms and not term_matches:
+    if not best_evidence["acceptable"]:
         return {
             "strong": False,
-            "reason": "no_exact_terms",
-            "matched_terms": [],
+            "reason": best_evidence["reason"],
+            "matched_terms": best_evidence["matched_terms"],
+            "matched_phrases": best_evidence["matched_phrases"],
+            "matched_identifiers": best_evidence["matched_identifiers"],
+            "matched_evidence": best_evidence["matched_evidence"],
             "max_score": max_score,
-        }
-
-    if terms and len(term_matches) < max(1, min(2, len(terms))):
-        return {
-            "strong": False,
-            "reason": "fragmentary_match",
-            "matched_terms": term_matches,
-            "max_score": max_score,
+            "best_index": best_index,
+            "best_evidence_score": best_evidence["score"],
         }
 
     return {
         "strong": True,
-        "reason": "acceptable",
-        "matched_terms": term_matches,
+        "reason": best_evidence["reason"],
+        "matched_terms": best_evidence["matched_terms"],
+        "matched_phrases": best_evidence["matched_phrases"],
+        "matched_identifiers": best_evidence["matched_identifiers"],
+        "matched_evidence": best_evidence["matched_evidence"],
         "max_score": max_score,
+        "best_index": best_index,
+        "best_evidence_score": best_evidence["score"],
     }
 
 
@@ -272,6 +497,7 @@ def build_fallback_plan(query: str, manifest_path: Optional[Path]) -> Dict[str, 
         "fallback_order": [],
         "notes": [
             "Keep fallback targeted; do not broad-crawl during normal query-time retrieval.",
+            "Reject broad official guide hits when query evidence is weak or from the wrong family.",
             "Prefer official sources and call out uncertainty when retrieval is partial.",
         ],
     }
@@ -327,6 +553,7 @@ def build_lookup_plan(query: str, manifest_path: Optional[Path], corpus_root: Pa
         "corpus": corpus,
         "mode": "qmd_enabled" if qmd_ready else "no_qmd",
         "classification": classify_query(query),
+        "query_signature": build_query_signature(query),
         "fallback": build_fallback_plan(query, manifest_path),
     }
 
@@ -375,7 +602,7 @@ def parse_args() -> argparse.Namespace:
     p_eval = sub.add_parser("evaluate-qmd", help="Evaluate qmd result strength from a JSON file")
     p_eval.add_argument("--query", required=True)
     p_eval.add_argument("--results-file", required=True)
-    p_eval.add_argument("--min-score", type=float, default=0.35)
+    p_eval.add_argument("--min-score", type=float, default=0.2)
     p_eval.set_defaults(func=command_evaluate_qmd)
 
     return parser.parse_args()

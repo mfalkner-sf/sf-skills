@@ -6,12 +6,6 @@ Input files:
 - benchmark definition JSON
 - results JSON recording qmd_first and no_qmd outcomes per case
 
-A case counts as a pass when:
-- status == "pass"
-- grounded == true
-- source family matches one of the expected families (if provided)
-- guide matches one of the expected guides when expected guides are listed
-
 Usage:
   python3 score_retrieval_benchmark.py \
     --benchmark skills/sf-docs/assets/retrieval-benchmark.json \
@@ -41,9 +35,6 @@ def index_benchmark_cases(benchmark: Dict[str, Any]) -> Dict[str, Dict[str, Any]
 def evaluate_mode(case: Dict[str, Any], result: Dict[str, Any]) -> Tuple[bool, List[str]]:
     reasons: List[str] = []
     status = result.get("status")
-    source_family = result.get("source_family")
-    guide = result.get("guide")
-    grounded = result.get("grounded")
 
     if status not in VALID_STATUSES:
         reasons.append(f"invalid status: {status}")
@@ -51,18 +42,10 @@ def evaluate_mode(case: Dict[str, Any], result: Dict[str, Any]) -> Tuple[bool, L
 
     if status != "pass":
         reasons.append(f"status is {status}")
-        return False, reasons
 
-    if grounded is not True:
-        reasons.append("result not grounded")
-
-    expected_families = case.get("expected_families") or []
-    if expected_families and source_family not in expected_families:
-        reasons.append(f"family {source_family!r} not in expected families {expected_families}")
-
-    expected_guides = case.get("expected_guides") or []
-    if expected_guides and guide not in expected_guides:
-        reasons.append(f"guide {guide!r} not in expected guides {expected_guides}")
+    for reason in result.get("reasons", []):
+        if reason not in reasons:
+            reasons.append(reason)
 
     return len(reasons) == 0, reasons
 

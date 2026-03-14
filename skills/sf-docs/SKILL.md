@@ -246,8 +246,10 @@ Parallel qmd + scraping can be considered later if benchmarks justify the added 
 | File | Purpose |
 |------|---------|
 | [assets/discovery-manifest.seed.json](assets/discovery-manifest.seed.json) | Starter guide manifest seed |
-| [assets/retrieval-benchmark.json](assets/retrieval-benchmark.json) | Pilot retrieval benchmark cases based on real Salesforce doc lookup needs |
-| [assets/retrieval-benchmark.results-template.json](assets/retrieval-benchmark.results-template.json) | Template for recording qmd-first and no-qmd benchmark outcomes |
+| [assets/retrieval-benchmark.json](assets/retrieval-benchmark.json) | Expanded core retrieval benchmark cases for exact identifiers, guide routing, and evidence grounding |
+| [assets/retrieval-benchmark.results-template.json](assets/retrieval-benchmark.results-template.json) | Template for recording qmd-first and no-qmd core benchmark outcomes |
+| [assets/retrieval-benchmark.robustness.json](assets/retrieval-benchmark.robustness.json) | Negative / wrong-guide rejection benchmark for hardening fallback behavior |
+| [assets/retrieval-benchmark.robustness.results-template.json](assets/retrieval-benchmark.robustness.results-template.json) | Template for recording robustness benchmark outcomes |
 | [scripts/cli.py](scripts/cli.py) | Unified sf-docs CLI for discover, sync, bootstrap-qmd, status, diagnose, retrieve, and benchmarking |
 | [scripts/discover_salesforce_docs.py](scripts/discover_salesforce_docs.py) | Enrich guide seeds into a discovery manifest and optionally verify PDF candidates |
 | [scripts/salesforce_dom_scraper.mjs](scripts/salesforce_dom_scraper.mjs) | Salesforce-aware browser scraper with Shadow DOM, legacy doc container, iframe, and help-page heuristics |

@@ -9,7 +9,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -28,37 +28,95 @@ def load_json(path: Path) -> Dict[str, Any]:
     return json.loads(path.read_text())
 
 
-def expected_match(case: Dict[str, Any], result: Dict[str, Any]) -> bool:
-    if result.get('status') != 'pass' or result.get('grounded') is not True:
-        return False
+def evaluate_case(case: Dict[str, Any], result: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    reasons: List[str] = []
+    expected_outcome = case.get('expected_outcome', 'grounded')
+
+    if expected_outcome == 'reject':
+        if result.get('status') == 'pass' and result.get('grounded') is True and result.get('confidence') in ('high', 'medium'):
+            reasons.append('query should have been rejected but returned a grounded pass')
+        forbidden = case.get('forbidden_guides') or []
+        if forbidden and result.get('guide') in forbidden and result.get('grounded') is True:
+            reasons.append(f"forbidden guide returned: {result.get('guide')}")
+        return len(reasons) == 0, reasons
+
+    if result.get('status') != 'pass':
+        reasons.append(f"status is {result.get('status')}")
+        return False, reasons
+
+    if result.get('grounded') is not True:
+        reasons.append('result not grounded')
+
     families = case.get('expected_families') or []
-    guides = case.get('expected_guides') or []
     if families and result.get('source_family') not in families:
-        return False
+        reasons.append(f"family {result.get('source_family')!r} not in expected families {families}")
+
+    products = case.get('expected_products') or []
+    if products and result.get('source_product') not in products:
+        reasons.append(f"product {result.get('source_product')!r} not in expected products {products}")
+
+    guides = case.get('expected_guides') or []
     if guides and result.get('guide') not in guides:
-        return False
-    return True
+        reasons.append(f"guide {result.get('guide')!r} not in expected guides {guides}")
+
+    forbidden = case.get('forbidden_guides') or []
+    if forbidden and result.get('guide') in forbidden:
+        reasons.append(f"forbidden guide returned: {result.get('guide')}")
+
+    matched = set((result.get('matched_evidence') or []) + (result.get('matched_terms') or []) + (result.get('matched_phrases') or []) + (result.get('matched_identifiers') or []))
+    evidence_any = [item.lower() for item in case.get('evidence_any', [])]
+    if evidence_any and not any(item in matched for item in evidence_any):
+        reasons.append(f"missing any-of evidence terms {evidence_any}")
+
+    evidence_all = [item.lower() for item in case.get('evidence_all', [])]
+    missing = [item for item in evidence_all if item not in matched]
+    if missing:
+        reasons.append(f"missing required evidence terms {missing}")
+
+    min_confidence = case.get('min_confidence')
+    confidence_order = {'low': 1, 'medium': 2, 'high': 3}
+    if min_confidence and confidence_order.get(result.get('confidence', 'low'), 0) < confidence_order.get(min_confidence, 0):
+        reasons.append(f"confidence {result.get('confidence')!r} below required {min_confidence!r}")
+
+    return len(reasons) == 0, reasons
+
+
+def benchmark_status(case: Dict[str, Any], result: Dict[str, Any]) -> str:
+    passed, _ = evaluate_case(case, result)
+    if passed:
+        return 'pass'
+    if result.get('status') == 'pass' or result.get('status') == 'partial':
+        return 'partial'
+    return 'fail'
+
+
+def adapt_result(case: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any]:
+    passed, reasons = evaluate_case(case, result)
+    return {
+        'status': 'pass' if passed else benchmark_status(case, result),
+        'source_family': result.get('source_family'),
+        'source_product': result.get('source_product'),
+        'guide': result.get('guide'),
+        'grounded': result.get('grounded'),
+        'confidence': result.get('confidence'),
+        'evidence_score': result.get('evidence_score'),
+        'matched_terms': result.get('matched_terms', []),
+        'matched_phrases': result.get('matched_phrases', []),
+        'matched_identifiers': result.get('matched_identifiers', []),
+        'matched_evidence': result.get('matched_evidence', []),
+        'notes': result.get('method', ''),
+        'source_url': result.get('source_url'),
+        'reasons': reasons,
+    }
 
 
 def run_case(case: Dict[str, Any], manifest: Path, corpus_root: Path, live_scrape: bool) -> Dict[str, Any]:
     qmd_result = retrieve(case['query'], manifest, corpus_root, 'qmd_first', live_scrape=live_scrape)
     no_qmd_result = retrieve(case['query'], manifest, corpus_root, 'no_qmd', live_scrape=live_scrape)
-
-    def adapt(result: Dict[str, Any]) -> Dict[str, Any]:
-        status = 'pass' if expected_match(case, result) else ('partial' if result.get('status') == 'pass' else 'fail')
-        return {
-            'status': status,
-            'source_family': result.get('source_family'),
-            'guide': result.get('guide'),
-            'grounded': result.get('grounded'),
-            'notes': result.get('method', ''),
-            'source_url': result.get('source_url'),
-        }
-
     return {
         'id': case['id'],
-        'qmd_first': adapt(qmd_result),
-        'no_qmd': adapt(no_qmd_result),
+        'qmd_first': adapt_result(case, qmd_result),
+        'no_qmd': adapt_result(case, no_qmd_result),
     }
 
 
@@ -76,7 +134,7 @@ def main() -> int:
     args = parse_args()
     benchmark = load_json(args.benchmark)
     out = {
-        'version': 1,
+        'version': 2,
         'benchmark': args.benchmark.name,
         'generated_at': benchmark.get('generated_at'),
         'modes': {

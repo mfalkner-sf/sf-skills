@@ -1,0 +1,295 @@
+{
+  "version": 2,
+  "benchmark": "retrieval-benchmark.robustness.json",
+  "generated_at": "2026-03-14T00:00:00Z",
+  "modes": {
+    "qmd_first": {
+      "description": "qmd-first local retrieval with Salesforce-aware fallback on weak/missing results"
+    },
+    "no_qmd": {
+      "description": "Salesforce-aware retrieval without qmd/local index"
+    }
+  },
+  "results": [
+    {
+      "id": "reject-nonexistent-apex-symbol",
+      "qmd_first": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      }
+    },
+    {
+      "id": "reject-nonexistent-custom-class",
+      "qmd_first": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      }
+    },
+    {
+      "id": "reject-third-party-stripe-auth",
+      "qmd_first": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      }
+    },
+    {
+      "id": "reject-sap-bapi",
+      "qmd_first": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      }
+    },
+    {
+      "id": "reject-typo-stubprovidr",
+      "qmd_first": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      }
+    },
+    {
+      "id": "reject-vague-token-query",
+      "qmd_first": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      }
+    },
+    {
+      "id": "reject-random-stacktrace",
+      "qmd_first": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      }
+    },
+    {
+      "id": "reject-messaging-wrong-guide-trap",
+      "qmd_first": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      },
+      "no_qmd": {
+        "status": "pending",
+        "source_family": null,
+        "source_product": null,
+        "guide": null,
+        "grounded": null,
+        "confidence": null,
+        "evidence_score": null,
+        "matched_terms": [],
+        "matched_phrases": [],
+        "matched_identifiers": [],
+        "matched_evidence": [],
+        "notes": "",
+        "source_url": null,
+        "reasons": []
+      }
+    }
+  ]
+}
