@@ -41,6 +41,7 @@ import os
 import re
 import shutil
 import ssl
+import subprocess
 import sys
 import tempfile
 import time
@@ -67,6 +68,8 @@ INSTALLER_FILE = CLAUDE_DIR / "sf-skills-install.py"
 SETTINGS_FILE = CLAUDE_DIR / "settings.json"
 SETTINGS_BACKUP_DIR = CLAUDE_DIR / ".settings-backups"
 MAX_SETTINGS_BACKUPS = 5
+MIN_QMD_NODE_VERSION = 22
+QMD_PACKAGE = "@tobilu/qmd"
 
 # Profile management
 PROFILE_PREFIX = "settings."
@@ -433,6 +436,112 @@ def confirm(prompt: str, default: bool = True) -> bool:
     except (EOFError, KeyboardInterrupt):
         print()
         return False
+
+
+def detect_qmd() -> Tuple[bool, Optional[str]]:
+    """Return whether qmd is installed, plus a human-readable version if available."""
+    qmd_bin = shutil.which("qmd")
+    if not qmd_bin:
+        return False, None
+
+    try:
+        result = subprocess.run(
+            [qmd_bin, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        version = (result.stdout or result.stderr).strip().splitlines()
+        return True, version[0] if version else qmd_bin
+    except Exception:
+        return True, qmd_bin
+
+
+
+def get_node_version() -> Tuple[Optional[str], Optional[int]]:
+    """Return Node.js version string and major version, if available."""
+    node_bin = shutil.which("node")
+    if not node_bin:
+        return None, None
+
+    try:
+        result = subprocess.run(
+            [node_bin, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        version = (result.stdout or result.stderr).strip().lstrip("v")
+        if not version:
+            return None, None
+        major = int(version.split(".", 1)[0])
+        return version, major
+    except Exception:
+        return None, None
+
+
+
+def install_qmd() -> bool:
+    """Install qmd globally via npm when prerequisites are satisfied."""
+    npm_bin = shutil.which("npm")
+    if not npm_bin:
+        print_warning("npm not found - cannot install qmd automatically")
+        print_info(f"Install later with: npm install -g {QMD_PACKAGE}")
+        return False
+
+    node_version, node_major = get_node_version()
+    if node_major is None:
+        print_warning("Node.js not found - qmd requires Node.js 22+")
+        print_info(f"Install Node.js {MIN_QMD_NODE_VERSION}+ and then run: npm install -g {QMD_PACKAGE}")
+        return False
+
+    if node_major < MIN_QMD_NODE_VERSION:
+        print_warning(
+            f"Node.js {node_version} found, but qmd requires Node.js {MIN_QMD_NODE_VERSION}+"
+        )
+        print_info(f"Upgrade Node.js, then run: npm install -g {QMD_PACKAGE}")
+        return False
+
+    print_info("Installing qmd for sf-docs local documentation search...")
+    try:
+        result = subprocess.run(
+            [npm_bin, "install", "-g", QMD_PACKAGE],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+    except subprocess.TimeoutExpired:
+        print_warning("qmd installation timed out")
+        return False
+    except Exception as e:
+        print_warning(f"qmd installation failed: {e}")
+        return False
+
+    if result.returncode == 0:
+        installed, qmd_version = detect_qmd()
+        if installed:
+            print_success(f"qmd installed: {qmd_version or 'installed'}")
+            return True
+        print_success("qmd installed")
+        return True
+
+    stderr = (result.stderr or result.stdout or "").strip().splitlines()
+    if stderr:
+        print_warning(f"qmd installation failed: {stderr[-1]}")
+    else:
+        print_warning("qmd installation failed")
+    print_info("sf-docs will still work using Salesforce-aware scraping fallback")
+    return False
+
+
+
+def update_metadata_fields(**updates: Any) -> None:
+    """Merge additional fields into ~/.claude/.sf-skills.json when present."""
+    data = read_metadata() or {}
+    if not data:
+        return
+    data.update(updates)
+    META_FILE.write_text(json.dumps(data, indent=2))
 
 
 # ============================================================================
@@ -1301,6 +1410,55 @@ def delete_profile(name: str) -> bool:
 # INSTALLATION OPERATIONS
 # ============================================================================
 
+
+def handle_qmd_choice(qmd_choice: str = "ask", dry_run: bool = False,
+                      force: bool = False, called_from_bash: bool = False) -> Tuple[str, bool]:
+    """Resolve qmd install preference, optionally install it, and persist metadata."""
+    installed, qmd_version = detect_qmd()
+    resolved = qmd_choice or "ask"
+
+    if called_from_bash:
+        if not dry_run:
+            update_metadata_fields(
+                qmd_choice=resolved,
+                qmd_installed=installed,
+                qmd_version=qmd_version,
+            )
+        return resolved, installed
+
+    print("\nOptional: qmd for sf-docs")
+    print("────────────────────────────────────────")
+    print_info("sf-docs works without qmd by using Salesforce-aware scraping and official PDF fallback.")
+
+    if installed:
+        print_success(f"qmd detected: {qmd_version or 'installed'}")
+        resolved = "install" if resolved == "ask" else resolved
+    elif resolved == "ask":
+        if force:
+            resolved = "skip"
+        else:
+            resolved = "install" if confirm(
+                "Install qmd for local Salesforce docs indexing?", default=False
+            ) else "skip"
+
+    if resolved == "install" and not installed:
+        if dry_run:
+            print_info(f"Would install qmd via npm ({QMD_PACKAGE})")
+        else:
+            installed = install_qmd()
+            installed, qmd_version = detect_qmd()
+    elif resolved == "skip":
+        print_info("Skipping qmd install - sf-docs will use Salesforce-aware scraping mode.")
+
+    if not dry_run:
+        update_metadata_fields(
+            qmd_choice=resolved,
+            qmd_installed=installed,
+            qmd_version=qmd_version,
+        )
+
+    return resolved, installed
+
 def get_hooks_config() -> Dict[str, Any]:
     """
     Generate hook configuration with absolute paths.
@@ -2132,7 +2290,8 @@ def cmd_cleanup(dry_run: bool = False) -> int:
     return 0
 
 
-def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bool = False) -> int:
+def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bool = False,
+                qmd_choice: str = "ask") -> int:
     """
     Install sf-skills.
 
@@ -2163,7 +2322,7 @@ def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bo
         # Show what will be installed
         print("""
   📦 WHAT WILL BE INSTALLED:
-     • 19 Salesforce skills (sf-apex, sf-flow, sf-metadata, ...)
+     • 20 Salesforce skills (sf-apex, sf-flow, sf-metadata, ...)
      • 10 hook scripts (guardrails, validation)
      • LSP engine (Apex, LWC, AgentScript language servers)
      • Automatic validation, guardrails, and org preflight checks
@@ -2321,6 +2480,8 @@ def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bo
                             _exec_args.append("--force")
                         if called_from_bash:
                             _exec_args.append("--called-from-bash")
+                        if qmd_choice:
+                            _exec_args.extend(["--qmd-choice", qmd_choice])
                         os.execv(sys.executable, _exec_args)
                         # os.execv replaces the process; unreachable below
                 except (IOError, OSError) as e:
@@ -2398,6 +2559,14 @@ def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bo
         # Clean up temp files
         cleanup_temp_files(dry_run)
 
+    # Optional: qmd setup for sf-docs
+    resolved_qmd_choice, qmd_installed = handle_qmd_choice(
+        qmd_choice=qmd_choice,
+        dry_run=dry_run,
+        force=force,
+        called_from_bash=called_from_bash,
+    )
+
     # Success message
     if not dry_run:
         if called_from_bash:
@@ -2407,6 +2576,7 @@ def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bo
    Version:  {version}
    Skills:   ~/.claude/skills/sf-*/
    Hooks:    ~/.claude/hooks/
+   qmd:      {'enabled' if qmd_installed else 'not installed (sf-docs scraping mode)'}
 """)
         else:
             # Full message when run directly
@@ -2418,10 +2588,12 @@ def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bo
    Skills:   ~/.claude/skills/sf-*/
    Hooks:    ~/.claude/hooks/
    LSP:      ~/.claude/lsp-engine/
+   qmd:      {'enabled' if qmd_installed else 'not installed (sf-docs scraping mode)'}
 
    🚀 Next steps:
    1. Restart Claude Code (or start new session)
    2. Try: /sf-apex to start building!
+   3. Use /sf-docs for official Salesforce documentation lookup
 
    📖 Commands:
    • Update:    python3 ~/.claude/sf-skills-install.py --update
@@ -2437,7 +2609,8 @@ def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bo
 
 def cmd_finalize_install(version: str, commit_sha: Optional[str] = None,
                          dry_run: bool = False, force: bool = False,
-                         called_from_bash: bool = False) -> int:
+                         called_from_bash: bool = False,
+                         qmd_choice: str = "ask") -> int:
     """
     Finalize installation (Steps 4-5 only).
 
@@ -2504,6 +2677,14 @@ def cmd_finalize_install(version: str, commit_sha: Optional[str] = None,
     # Clean up temp files
     cleanup_temp_files(dry_run)
 
+    # Optional: qmd setup for sf-docs
+    resolved_qmd_choice, qmd_installed = handle_qmd_choice(
+        qmd_choice=qmd_choice,
+        dry_run=dry_run,
+        force=force,
+        called_from_bash=called_from_bash,
+    )
+
     # Success message
     if not dry_run:
         if called_from_bash:
@@ -2512,6 +2693,7 @@ def cmd_finalize_install(version: str, commit_sha: Optional[str] = None,
    Version:  {version}
    Skills:   ~/.claude/skills/sf-*/
    Hooks:    ~/.claude/hooks/
+   qmd:      {'enabled' if qmd_installed else 'not installed (sf-docs scraping mode)'}
 """)
         else:
             print(f"""
@@ -2522,10 +2704,12 @@ def cmd_finalize_install(version: str, commit_sha: Optional[str] = None,
    Skills:   ~/.claude/skills/sf-*/
    Hooks:    ~/.claude/hooks/
    LSP:      ~/.claude/lsp-engine/
+   qmd:      {'enabled' if qmd_installed else 'not installed (sf-docs scraping mode)'}
 
    🚀 Next steps:
    1. Restart Claude Code (or start new session)
    2. Try: /sf-apex to start building!
+   3. Use /sf-docs for official Salesforce documentation lookup
 
    📖 Commands:
    • Update:    python3 ~/.claude/sf-skills-install.py --update
@@ -2793,6 +2977,13 @@ def cmd_status() -> int:
         print(f"LSP count:   {wrapper_count} wrappers (Apex, LWC, AgentScript)")
     else:
         print(f"LSP count:   {c('⚠️ Not installed', Colors.YELLOW)}")
+
+    # Check qmd for sf-docs
+    qmd_installed, qmd_version = detect_qmd()
+    if qmd_installed:
+        print(f"qmd:         {c('✓', Colors.GREEN)} {qmd_version or 'installed'}")
+    else:
+        print(f"qmd:         {c('○', Colors.DIM)} Not installed (sf-docs will use scraping fallback)")
 
     # Check settings.json
     if SETTINGS_FILE.exists():
@@ -3418,6 +3609,8 @@ Curl one-liner:
                         help="Skip confirmation prompts")
     parser.add_argument("--called-from-bash", action="store_true",
                         help="Called from bash wrapper (suppress redundant output)")
+    parser.add_argument("--qmd-choice", choices=("ask", "install", "skip"), default="ask",
+                        help="qmd install preference for sf-docs: ask, install, or skip")
     parser.add_argument("--version", action="version",
                         version=f"sf-skills installer v{VERSION}")
 
@@ -3464,7 +3657,8 @@ Curl one-liner:
             commit_sha=getattr(args, 'finalize_sha', None) or None,
             dry_run=args.dry_run,
             force=args.force,
-            called_from_bash=args.called_from_bash
+            called_from_bash=args.called_from_bash,
+            qmd_choice=args.qmd_choice
         ))
     elif args.cleanup:
         sys.exit(cmd_cleanup(dry_run=args.dry_run))
@@ -3488,7 +3682,8 @@ Curl one-liner:
         sys.exit(cmd_install(
             dry_run=args.dry_run,
             force=args.force,
-            called_from_bash=args.called_from_bash
+            called_from_bash=args.called_from_bash,
+            qmd_choice=args.qmd_choice
         ))
 
 

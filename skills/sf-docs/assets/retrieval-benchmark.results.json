@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "benchmark": "retrieval-benchmark.json",
+  "generated_at": "2026-03-14T00:00:00Z",
+  "modes": {
+    "qmd_first": {
+      "description": "qmd-first local retrieval with Salesforce-aware fallback on weak/missing results"
+    },
+    "no_qmd": {
+      "description": "Salesforce-aware retrieval without qmd/local index"
+    }
+  },
+  "results": [
+    {
+      "id": "agentforce-authentication",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "platform",
+        "guide": "agentforce-guide",
+        "grounded": true,
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide"
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "platform",
+        "guide": "agentforce-guide",
+        "grounded": true,
+        "notes": "normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide"
+      }
+    },
+    {
+      "id": "messaging-domain-security",
+      "qmd_first": {
+        "status": "partial",
+        "source_family": "atlas",
+        "guide": "object_reference",
+        "grounded": true,
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf"
+      },
+      "no_qmd": {
+        "status": "partial",
+        "source_family": "atlas",
+        "guide": "object_reference",
+        "grounded": true,
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf"
+      }
+    },
+    {
+      "id": "apex-stubprovider-reference",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "atlas",
+        "guide": "apexcode",
+        "grounded": true,
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf"
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "atlas",
+        "guide": "apexcode",
+        "grounded": true,
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/salesforce_apex_developer_guide.pdf"
+      }
+    },
+    {
+      "id": "rest-api-authentication",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "atlas",
+        "guide": "api_rest",
+        "grounded": true,
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_rest.pdf"
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "atlas",
+        "guide": "api_rest",
+        "grounded": true,
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_rest.pdf"
+      }
+    },
+    {
+      "id": "metadata-api-deploy",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "atlas",
+        "guide": "api_meta",
+        "grounded": true,
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_meta.pdf"
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "atlas",
+        "guide": "api_meta",
+        "grounded": true,
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/api_meta.pdf"
+      }
+    },
+    {
+      "id": "object-reference-account",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "atlas",
+        "guide": "object_reference",
+        "grounded": true,
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf"
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "atlas",
+        "guide": "object_reference",
+        "grounded": true,
+        "notes": "normalized_markdown",
+        "source_url": "https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/object_reference.pdf"
+      }
+    },
+    {
+      "id": "lwc-wire-guide",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "platform",
+        "guide": "lwc",
+        "grounded": true,
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/platform/lwc/guide"
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "platform",
+        "guide": "lwc",
+        "grounded": true,
+        "notes": "normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/platform/lwc/guide"
+      }
+    },
+    {
+      "id": "agent-script-runtime",
+      "qmd_first": {
+        "status": "pass",
+        "source_family": "platform",
+        "guide": "agentforce-guide",
+        "grounded": true,
+        "notes": "qmd_fallback:normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide"
+      },
+      "no_qmd": {
+        "status": "pass",
+        "source_family": "platform",
+        "guide": "agentforce-guide",
+        "grounded": true,
+        "notes": "normalized_markdown",
+        "source_url": "https://developer.salesforce.com/docs/ai/agentforce/guide"
+      }
+    }
+  ]
+}

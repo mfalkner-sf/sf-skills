@@ -27,6 +27,8 @@ MIN_PYTHON_MAJOR=3
 MIN_PYTHON_MINOR=10
 MIN_JAVA_VERSION=11
 MIN_NODE_VERSION=18
+MIN_QMD_NODE_VERSION=22
+QMD_PACKAGE="@tobilu/qmd"
 
 # ============================================================================
 # COLORS & OUTPUT HELPERS
@@ -498,11 +500,83 @@ check_node() {
     fi
 }
 
+check_qmd() {
+    print_step "Checking for qmd..."
+    explain "qmd gives sf-docs a local Salesforce documentation index for faster, more reliable lookups."
+
+    if ! command -v qmd &>/dev/null; then
+        print_warning "qmd not found (optional - sf-docs will fall back to Salesforce-aware scraping)"
+        return 1
+    fi
+
+    local qmd_version
+    qmd_version=$(qmd --version 2>/dev/null | head -1 || true)
+    if [[ -n "$qmd_version" ]]; then
+        print_success "qmd found: $qmd_version"
+    else
+        print_success "qmd found"
+    fi
+    return 0
+}
+
+install_qmd() {
+    print_info "Installing qmd for sf-docs local documentation search..."
+
+    if ! command -v node &>/dev/null; then
+        print_warning "Node.js is required to install qmd"
+        return 1
+    fi
+
+    if ! command -v npm &>/dev/null; then
+        print_warning "npm not found - cannot install qmd automatically"
+        return 1
+    fi
+
+    local version major
+    version=$(node --version | sed 's/^v//')
+    major=${version%%.*}
+
+    if [[ "$major" -lt "$MIN_QMD_NODE_VERSION" ]]; then
+        print_warning "qmd requires Node.js ${MIN_QMD_NODE_VERSION}+ (found $version)"
+
+        if [[ "$(detect_os)" == "macos" ]] && command -v brew &>/dev/null; then
+            if confirm "Upgrade/install Node.js via Homebrew for qmd?" "y"; then
+                brew install node 2>/dev/null || brew upgrade node 2>/dev/null || true
+                version=$(node --version 2>/dev/null | sed 's/^v//' || echo "")
+                major=${version%%.*}
+            fi
+        fi
+    fi
+
+    if [[ -z "$major" || "$major" -lt "$MIN_QMD_NODE_VERSION" ]]; then
+        print_warning "Skipping qmd install - Node.js ${MIN_QMD_NODE_VERSION}+ is still required"
+        print_info "You can install it later with: npm install -g ${QMD_PACKAGE}"
+        return 1
+    fi
+
+    if npm install -g "${QMD_PACKAGE}"; then
+        local qmd_version
+        qmd_version=$(qmd --version 2>/dev/null | head -1 || true)
+        if [[ -n "$qmd_version" ]]; then
+            print_success "qmd installed: $qmd_version"
+        else
+            print_success "qmd installed successfully"
+        fi
+        return 0
+    fi
+
+    print_warning "qmd installation failed - sf-docs will still work via scraping fallback"
+    print_info "You can retry later with: npm install -g ${QMD_PACKAGE}"
+    return 1
+}
+
 # ============================================================================
 # INSTALLATION
 # ============================================================================
 
 download_and_run_installer() {
+    local qmd_choice="${1:-ask}"
+
     print_step "Downloading sf-skills installer..."
 
     local tmp_installer="/tmp/sf-skills-install-$$.py"
@@ -518,7 +592,7 @@ download_and_run_installer() {
     echo ""
 
     # Run Python installer with flags to indicate we're calling from bash
-    python3 "$tmp_installer" --force --called-from-bash
+    python3 "$tmp_installer" --force --called-from-bash --qmd-choice "$qmd_choice"
     local result=$?
 
     # Cleanup
@@ -595,6 +669,28 @@ show_next_steps() {
     echo -e "  2. ${BOLD}Try your first skill${NC}"
     echo "     In Claude Code, type: /sf-apex"
     echo ""
+    echo -e "  3. ${BOLD}Use sf-docs for official documentation lookup${NC}"
+    if command -v qmd &>/dev/null; then
+        echo "     sf-docs will use your local qmd index first, then Salesforce-aware fallback"
+    else
+        echo "     sf-docs will use Salesforce-aware scraping and official PDF fallback"
+    fi
+    echo ""
+
+    if [[ "$env_type" == "enterprise" ]]; then
+        echo -e "  4. ${BOLD}Save your enterprise profile${NC}"
+        echo "     python3 ~/.claude/sf-skills-install.py --profile save enterprise"
+        echo ""
+        echo -e "  ${DIM}ℹ️  Enterprise note: LLM-based evaluation is disabled for Bedrock"
+        echo -e "     gateway configs. Pattern-based guardrails still active.${NC}"
+        echo ""
+    else
+        echo -e "  4. ${BOLD}Connect a Salesforce org${NC} (if not already)"
+        echo "     Run: sf org login web"
+        echo ""
+    fi
+
+    echo -e "  📖 Documentation: ${CYAN}${DOCS_URL}${NC}"
 
     if [[ "$env_type" == "enterprise" ]]; then
         echo -e "  3. ${BOLD}Save your enterprise profile${NC}"
@@ -752,6 +848,23 @@ main() {
         fi
     fi
 
+    echo ""
+    local qmd_choice="skip"
+    if check_qmd; then
+        qmd_choice="install"
+    else
+        print_info "sf-docs works without qmd by using Salesforce-aware scraping and official PDF fallback."
+        if confirm "Install qmd for local Salesforce docs indexing?" "n"; then
+            if install_qmd; then
+                qmd_choice="install"
+            else
+                qmd_choice="skip"
+            fi
+        else
+            print_info "Skipping qmd install - sf-docs will use Salesforce-aware scraping mode."
+        fi
+    fi
+
     # ═══════════════════════════════════════════════════════════════════════
     # Phase 4: Installation
     # ═══════════════════════════════════════════════════════════════════════
@@ -759,7 +872,7 @@ main() {
     echo -e "${BOLD}Phase 4: Installing sf-skills${NC}"
     echo "════════════════════════════════════════"
 
-    if ! download_and_run_installer; then
+    if ! download_and_run_installer "$qmd_choice"; then
         echo ""
         # Check if this was an SSL error
         if ! python3 -c "import urllib.request; urllib.request.urlopen('https://api.github.com', timeout=5)" 2>/dev/null; then

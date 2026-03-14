@@ -4,13 +4,13 @@
 
 [![Author](https://img.shields.io/badge/Author-Jag_Valaiyapathy-blue?logo=github)](https://github.com/Jaganpro)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Skills](https://img.shields.io/badge/Skills-19-4F46E5)](#available-skills)
+[![Skills](https://img.shields.io/badge/Skills-20-4F46E5)](#available-skills)
 [![Claude Code Agents](https://img.shields.io/badge/Claude_Code_Agents-7-059669)](#agent-team)
 [![Standard](https://img.shields.io/badge/Agent_Skills-Compatible-0F766E)](https://agentskills.io)
 
 A reusable skill library for **Salesforce-focused coding agents**—covering Apex, Flow, LWC, SOQL, metadata, integration, testing, deployment, and Agentforce workflows.
 
-**Included:** 19 Salesforce skills, 7 specialist Claude Code agents, a shared hook system for guardrails and auto-validation, and LSP-backed feedback for Apex, LWC, and Agent Script.
+**Included:** 20 Salesforce skills, 7 specialist Claude Code agents, a shared hook system for guardrails and auto-validation, and LSP-backed feedback for Apex, LWC, and Agent Script.
 
 **Start here:** [Available Skills](#available-skills) · [Installation](#installation) · [Claude Code Features](#claude-code-features) · [Skill Architecture](#skill-architecture)
 
@@ -26,7 +26,7 @@ The library is organized by capability area so you can scan quickly, pick the ri
 |---|---|---|
 | 💻 **Development** | [sf-apex](skills/sf-apex/), [sf-flow](skills/sf-flow/), [sf-lwc](skills/sf-lwc/), [sf-soql](skills/sf-soql/) | Apex, Flow, LWC, and query development |
 | 🧪 **Quality** | [sf-testing](skills/sf-testing/), [sf-debug](skills/sf-debug/) | Test execution, coverage analysis, and debug-log troubleshooting |
-| 📦 **Foundation** | [sf-metadata](skills/sf-metadata/), [sf-data](skills/sf-data/), [sf-permissions](skills/sf-permissions/) | Metadata generation, data operations, and access analysis |
+| 📦 **Foundation** | [sf-metadata](skills/sf-metadata/), [sf-data](skills/sf-data/), [sf-docs](skills/sf-docs/), [sf-permissions](skills/sf-permissions/) | Metadata generation, data operations, access analysis, and official Salesforce docs retrieval |
 | 🔌 **Integration** | [sf-connected-apps](skills/sf-connected-apps/), [sf-integration](skills/sf-integration/) | OAuth, External Client Apps, Named Credentials, callouts, and events |
 | 🤖 **AI & Automation** | [sf-ai-agentscript](skills/sf-ai-agentscript/), [sf-ai-agentforce](skills/sf-ai-agentforce/), [sf-ai-agentforce-testing](skills/sf-ai-agentforce-testing/), [sf-ai-agentforce-observability](skills/sf-ai-agentforce-observability/), [sf-ai-agentforce-persona](skills/sf-ai-agentforce-persona/) | Agent design, Agent Script, testing, observability, and persona design |
 | 🚀 **DevOps & Tooling** | [sf-deploy](skills/sf-deploy/), [sf-diagram-mermaid](skills/sf-diagram-mermaid/), [sf-diagram-nanobananapro](skills/sf-diagram-nanobananapro/) | Deployment automation, Mermaid diagrams, and visual artifacts |
@@ -69,7 +69,7 @@ npx skills add Jaganpro/sf-skills --list
 curl -sSL https://raw.githubusercontent.com/Jaganpro/sf-skills/main/tools/install.sh | bash
 ```
 
-This installs 19 skills, 7 specialist agents, a shared hook system, and the local LSP engine. It also configures guardrails, auto-validation on Write/Edit, org preflight checks, and background LSP prewarm.
+This installs 20 skills, 7 specialist agents, a shared hook system, and the local LSP engine. It also configures guardrails, auto-validation on Write/Edit, org preflight checks, and background LSP prewarm.
 
 **Restart Claude Code** after installation.
 
@@ -121,10 +121,10 @@ python3 ~/.claude/sf-skills-install.py --profile delete old
 
 ```
 ~/.claude/
-├── skills/                    # 19 Salesforce skills
+├── skills/                    # 20 Salesforce skills
 │   ├── sf-apex/SKILL.md
 │   ├── sf-flow/SKILL.md
-│   └── ... (17 more)
+│   └── ... (18 more)
 ├── agents/                    # 7 FDE + PS agents
 │   ├── fde-strategist.md
 │   ├── fde-engineer.md
@@ -560,6 +560,7 @@ sf-industry-{name}        # Industries (healthcare, finserv)
 | 🧪 | `sf-testing` | Test execution, coverage, bulk testing | ✅ Live |
 | 🐛 | `sf-debug` | Debug log analysis, governor fixes | ✅ Live |
 | 📸 | `sf-diagram-nanobananapro` | Visual ERD, LWC mockups, Gemini sub-agent | ✅ Live |
+| 📚 | `sf-docs` | Official Salesforce docs retrieval, qmd-first local search + Salesforce-aware fallback | ✅ Live |
 | 🔐 | `sf-permissions` | Permission Set analysis, hierarchy viewer, "Who has X?" | ✅ Live |
 | 🔒 | `sf-security` | Sharing rules, org-wide defaults, encryption | 📋 Planned |
 | 📦 | `sf-migration` | Org-to-org, metadata comparison | 📋 Planned |
@@ -595,7 +596,7 @@ sf-industry-{name}        # Industries (healthcare, finserv)
 | 🏦 | `sf-industry-finserv` | KYC, AML, Wealth Management | 📋 Planned |
 | 💵 | `sf-industry-revenue` | CPQ, Billing, Revenue Lifecycle | 📋 Planned |
 
-**Total: 29 skills** (19 skills ✅ live, 10 planned 📋)
+**Total: 30 skills** (20 skills ✅ live, 10 planned 📋)
 
 </details>
 

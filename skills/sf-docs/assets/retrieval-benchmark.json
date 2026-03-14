@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "generated_at": "2026-03-14T00:00:00Z",
+  "description": "Pilot retrieval-quality benchmark for sf-docs. Use these cases to validate both qmd-first and no-qmd Salesforce-aware fallback modes.",
+  "cases": [
+    {
+      "id": "agentforce-authentication",
+      "query": "Find official Salesforce documentation about Agentforce authentication, identity verification, OTP flows, how topics are unlocked after authentication, and the security model for agent conversations.",
+      "expected_families": ["platform", "help"],
+      "expected_products": ["agentforce"],
+      "expected_guides": ["agentforce-guide"],
+      "priority": "high",
+      "notes": "Derived from the original failure example; should avoid generic 404/web-shell behavior."
+    },
+    {
+      "id": "messaging-domain-security",
+      "query": "Find official Salesforce documentation about Messaging for In-App and Web domain and security configuration, allowed domains, CORS/origin restrictions, and embedded deployment security settings.",
+      "expected_families": ["platform", "help"],
+      "expected_products": ["platform"],
+      "expected_guides": [],
+      "priority": "high",
+      "notes": "This is a known hard case for naive fetches; fallback quality matters."
+    },
+    {
+      "id": "apex-stubprovider-reference",
+      "query": "Find the official Salesforce documentation for System.StubProvider in Apex and explain when to use it in tests.",
+      "expected_families": ["atlas"],
+      "expected_products": ["apex"],
+      "expected_guides": ["apexref", "apexcode"],
+      "priority": "high",
+      "notes": "Should prefer exact reference-style retrieval."
+    },
+    {
+      "id": "rest-api-authentication",
+      "query": "Find the official Salesforce REST API documentation for authentication requirements and bearer token usage.",
+      "expected_families": ["atlas"],
+      "expected_products": ["api"],
+      "expected_guides": ["api_rest"],
+      "priority": "high",
+      "notes": "Baseline integration lookup."
+    },
+    {
+      "id": "metadata-api-deploy",
+      "query": "Find the official Salesforce Metadata API documentation for deploy and retrieve patterns.",
+      "expected_families": ["atlas"],
+      "expected_products": ["metadata"],
+      "expected_guides": ["api_meta"],
+      "priority": "medium",
+      "notes": "Checks deployment/reference grounding."
+    },
+    {
+      "id": "object-reference-account",
+      "query": "Find the official Salesforce object reference documentation for Account and standard object metadata lookup.",
+      "expected_families": ["atlas"],
+      "expected_products": ["platform"],
+      "expected_guides": ["object_reference"],
+      "priority": "medium",
+      "notes": "Checks object reference access."
+    },
+    {
+      "id": "lwc-wire-guide",
+      "query": "Find official Lightning Web Components documentation explaining the wire service and wire adapters.",
+      "expected_families": ["platform"],
+      "expected_products": ["lwc"],
+      "expected_guides": ["lwc"],
+      "priority": "medium",
+      "notes": "Checks modern platform guide retrieval."
+    },
+    {
+      "id": "agent-script-runtime",
+      "query": "Find the official Salesforce documentation for Agentforce Agent Script and Atlas reasoning engine behavior.",
+      "expected_families": ["platform", "help"],
+      "expected_products": ["agentforce"],
+      "expected_guides": ["agentforce-guide"],
+      "priority": "medium",
+      "notes": "Validates AI/Agentforce doc coverage."
+    }
+  ]
+}

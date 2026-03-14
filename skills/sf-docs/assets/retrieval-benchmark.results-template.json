@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "benchmark": "retrieval-benchmark.json",
+  "generated_at": "2026-03-14T00:00:00Z",
+  "modes": {
+    "qmd_first": {
+      "description": "qmd-first local retrieval with Salesforce-aware fallback on weak/missing results"
+    },
+    "no_qmd": {
+      "description": "Salesforce-aware retrieval without qmd/local index"
+    }
+  },
+  "results": [
+    {
+      "id": "agentforce-authentication",
+      "qmd_first": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""},
+      "no_qmd": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""}
+    },
+    {
+      "id": "messaging-domain-security",
+      "qmd_first": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""},
+      "no_qmd": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""}
+    },
+    {
+      "id": "apex-stubprovider-reference",
+      "qmd_first": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""},
+      "no_qmd": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""}
+    },
+    {
+      "id": "rest-api-authentication",
+      "qmd_first": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""},
+      "no_qmd": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""}
+    },
+    {
+      "id": "metadata-api-deploy",
+      "qmd_first": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""},
+      "no_qmd": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""}
+    },
+    {
+      "id": "object-reference-account",
+      "qmd_first": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""},
+      "no_qmd": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""}
+    },
+    {
+      "id": "lwc-wire-guide",
+      "qmd_first": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""},
+      "no_qmd": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""}
+    },
+    {
+      "id": "agent-script-runtime",
+      "qmd_first": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""},
+      "no_qmd": {"status": "pending", "source_family": null, "guide": null, "grounded": null, "notes": ""}
+    }
+  ]
+}

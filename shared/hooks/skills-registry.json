@@ -457,6 +457,37 @@
       "triggerWhen": "user creates test data, performs bulk import/export, uses sf data CLI commands, or needs data factory patterns for Apex tests",
       "doNotTriggerWhen": "SOQL query writing only (use sf-soql), Apex test execution (use sf-testing), or metadata deployment (use sf-deploy)"
     },
+    "sf-docs": {
+      "keywords": [
+        "salesforce documentation",
+        "official docs",
+        "developer docs",
+        "help salesforce",
+        "help.salesforce.com",
+        "developer.salesforce.com",
+        "atlas",
+        "pdf guide",
+        "apex reference",
+        "api reference",
+        "agentforce docs",
+        "lwc docs"
+      ],
+      "intentPatterns": [
+        "find.*documentation",
+        "look.*up.*docs",
+        "official.*salesforce.*docs",
+        "search.*salesforce.*docs",
+        "where.*documented",
+        "help.*salesforce",
+        "developer.*salesforce.*docs",
+        "find.*reference",
+        "look.*up.*agentforce",
+        "research.*official.*docs"
+      ],
+      "filePatterns": [],
+      "priority": "high",
+      "description": "Official Salesforce documentation retrieval with qmd-first local search, weak-hit evaluation, and Salesforce-aware fallback scraping"
+    },
     "sf-integration": {
       "keywords": [
         "callout",
