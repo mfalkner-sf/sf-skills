@@ -850,6 +850,7 @@ class AgentScriptValidator:
         self._check_sensitive_actions_without_guards()
         self._check_welcome_error_patterns()
         self._check_escalation_fallback_heuristic()
+        self._check_platform_guardrail_topic_conflict()
 
         return {
             "success": len(self.errors) == 0,
@@ -1775,6 +1776,55 @@ class AgentScriptValidator:
                 "ASV-RUN-018",
             )
 
+    def _check_platform_guardrail_topic_conflict(self):
+        """Warn when custom topics duplicate the 3 platform-injected guardrail tools.
+
+        The platform auto-injects these tools into every topic's EnabledToolsStep:
+          - Inappropriate Content Guardrail  (tool name: Inappropriate_Content)
+          - Prompt Injection Guardrail       (tool name: Prompt_Injection)
+          - Reverse Engineering Guardrail    (tool name: Reverse_Engineering)
+
+        Custom AgentScript topics with the same or similar names create 3+3 tool
+        duplication in the LLM tool set, confusing the planner and causing
+        "unexpected error" crashes when both the platform tool and the custom
+        topic fire on the same input. The platform tools cannot be disabled.
+
+        Recommended fix: Remove the custom guardrail topics and let the platform's
+        built-in guardrail tools handle content moderation.
+        """
+        platform_guardrail_patterns = {
+            "inappropriate": "Inappropriate Content Guardrail",
+            "prompt_injection": "Prompt Injection Guardrail",
+            "reverse_engineering": "Reverse Engineering Guardrail",
+        }
+
+        conflicting_topics = []
+        for topic_name, line_num in self.topic_names.items():
+            topic_lower = topic_name.lower()
+            for pattern, platform_name in platform_guardrail_patterns.items():
+                if pattern in topic_lower:
+                    conflicting_topics.append((topic_name, line_num, platform_name))
+
+        # Also check for transition actions in start_agent that route to guardrail topics
+        guardrail_transitions = []
+        for i, line in enumerate(self.lines, 1):
+            stripped = line.strip()
+            for pattern in platform_guardrail_patterns:
+                if f"@topic." in stripped and pattern in stripped.lower() and "transition" in stripped.lower():
+                    guardrail_transitions.append((i, stripped))
+
+        if conflicting_topics:
+            topic_list = ", ".join(f"'{t[0]}' (line {t[1]}, conflicts with {t[2]})" for t in conflicting_topics)
+            self._add_warning(
+                conflicting_topics[0][1],
+                f"Custom guardrail topic(s) {topic_list} duplicate the platform's built-in guardrail tools. "
+                f"The platform auto-injects 'Inappropriate Content Guardrail', 'Prompt Injection Guardrail', and "
+                f"'Reverse Engineering Guardrail' into every topic's tool set. Custom topics with similar names create "
+                f"3+3 tool duplication, confusing the LLM planner and causing 'unexpected error' crashes. "
+                f"Consider removing custom guardrail topics and relying on the platform's built-in guardrail tools.",
+                "ASV-RUN-022",
+            )
+
     def _issue_texts(self, severity: str) -> List[str]:
         issues = self.errors if severity == "error" else self.warnings
         return [message for _, _, message in issues]
@@ -1842,6 +1892,7 @@ class AgentScriptValidator:
             self._checklist_entry("Runtime gotchas", "Welcome/error message stability", ["ASV-RUN-015", "ASV-RUN-016"], success_detail="System welcome/error messages avoid known interpolation/line-break pitfalls.", na_detail="No obvious welcome/error message patterns detected.", applicable=bool(self.welcome_error_interpolation_lines or self.welcome_error_multiline_lines), confidence="Runtime drift"),
             self._checklist_entry("Runtime gotchas", "Escalation fallback resilience", ["ASV-RUN-018"], success_detail="Escalation usage includes an obvious fallback or latch pattern.", na_detail="No @utils.escalate usage detected.", applicable="@utils.escalate" in self.content, confidence="Heuristic warning"),
             self._checklist_entry("Runtime gotchas", "Large file parser risk", ["ASV-RUN-019"], success_detail="File size/complexity stays below the configured parser-risk thresholds.", confidence="Heuristic warning"),
+            self._checklist_entry("Runtime gotchas", "Platform guardrail topic conflict", ["ASV-RUN-022"], success_detail="No custom topics duplicate the platform's built-in guardrail tools.", na_detail="No guardrail-related topic names detected.", applicable=any(p in n.lower() for n in self.topic_names for p in ("inappropriate", "prompt_injection", "reverse_engineering")), confidence="Runtime crash risk"),
             self._checklist_entry("Quality", "Transition naming conventions", ["ASV-QLT-001"], success_detail="Transition actions follow the recommended go_to_ naming pattern.", na_detail="No utility transitions detected.", applicable=any(action.get("kind") == "utility_transition" for action in self.action_definitions), confidence="Style / maintainability"),
             self._checklist_entry("Quality", "Action description distinctness", ["ASV-QLT-002"], success_detail="Action descriptions are distinct enough to guide planner selection.", na_detail="No repeated action descriptions detected.", applicable=bool(self.action_definitions), confidence="LLM routing quality"),
             self._checklist_entry("Quality", "Topic description distinctness", ["ASV-QLT-003"], success_detail="Topic descriptions are distinct enough to guide topic selection.", na_detail="No repeated topic/start descriptions detected.", applicable=bool(self.block_descriptions), confidence="LLM routing quality"),
