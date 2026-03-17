@@ -4,13 +4,13 @@
 
 [![Author](https://img.shields.io/badge/Author-Jag_Valaiyapathy-blue?logo=github)](https://github.com/Jaganpro)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Skills](https://img.shields.io/badge/Skills-20-4F46E5)](#available-skills)
+[![Skills](https://img.shields.io/badge/Skills-25-4F46E5)](#available-skills)
 [![Claude Code Agents](https://img.shields.io/badge/Claude_Code_Agents-7-059669)](#agent-team)
 [![Standard](https://img.shields.io/badge/Agent_Skills-Compatible-0F766E)](https://agentskills.io)
 
 A reusable skill library for **Salesforce-focused coding agents**—covering Apex, Flow, LWC, SOQL, metadata, integration, testing, deployment, and Agentforce workflows.
 
-**Included:** 20 Salesforce skills, 7 specialist Claude Code agents, a shared hook system for guardrails and auto-validation, and LSP-backed feedback for Apex, LWC, and Agent Script.
+**Included:** 25 Salesforce skills, 7 specialist Claude Code agents, a shared hook system for guardrails and auto-validation, and LSP-backed feedback for Apex, LWC, and Agent Script.
 
 **Start here:** [Available Skills](#available-skills) · [Installation](#installation) · [Claude Code Features](#claude-code-features) · [Skill Architecture](#skill-architecture)
 
@@ -30,6 +30,7 @@ The library is organized by capability area so you can scan quickly, pick the ri
 | 🔌 **Integration** | [sf-connected-apps](skills/sf-connected-apps/), [sf-integration](skills/sf-integration/) | OAuth, External Client Apps, Named Credentials, callouts, and events |
 | 🤖 **AI & Automation** | [sf-ai-agentscript](skills/sf-ai-agentscript/), [sf-ai-agentforce](skills/sf-ai-agentforce/), [sf-ai-agentforce-testing](skills/sf-ai-agentforce-testing/), [sf-ai-agentforce-observability](skills/sf-ai-agentforce-observability/), [sf-ai-agentforce-persona](skills/sf-ai-agentforce-persona/) | Agent design, Agent Script, testing, observability, and persona design |
 | 🚀 **DevOps & Tooling** | [sf-deploy](skills/sf-deploy/), [sf-diagram-mermaid](skills/sf-diagram-mermaid/), [sf-diagram-nanobananapro](skills/sf-diagram-nanobananapro/) | Deployment automation, Mermaid diagrams, and visual artifacts |
+| 🏢 **Industries** | [sf-industry-commoncore-omnistudio-analyze](skills/sf-industry-commoncore-omnistudio-analyze/), [sf-industry-commoncore-datamapper](skills/sf-industry-commoncore-datamapper/), [sf-industry-commoncore-integration-procedure](skills/sf-industry-commoncore-integration-procedure/), [sf-industry-commoncore-omniscript](skills/sf-industry-commoncore-omniscript/), [sf-industry-commoncore-flexcard](skills/sf-industry-commoncore-flexcard/) | OmniStudio: DataMappers, Integration Procedures, OmniScripts, FlexCards, dependency analysis |
 
 <a id="installation"></a>
 
@@ -69,7 +70,7 @@ npx skills add Jaganpro/sf-skills --list
 curl -sSL https://raw.githubusercontent.com/Jaganpro/sf-skills/main/tools/install.sh | bash
 ```
 
-This installs 20 skills, 7 specialist agents, a shared hook system, and the local LSP engine. It also configures guardrails, auto-validation on Write/Edit, org preflight checks, and background LSP prewarm.
+This installs 25 skills, 7 specialist agents, a shared hook system, and the local LSP engine. It also configures guardrails, auto-validation on Write/Edit, org preflight checks, and background LSP prewarm.
 
 **Restart Claude Code** after installation.
 
@@ -121,7 +122,7 @@ python3 ~/.claude/sf-skills-install.py --profile delete old
 
 ```
 ~/.claude/
-├── skills/                    # 20 Salesforce skills
+├── skills/                    # 25 Salesforce skills
 │   ├── sf-apex/SKILL.md
 │   ├── sf-flow/SKILL.md
 │   └── ... (18 more)
@@ -544,9 +545,10 @@ npx skills add Jaganpro/sf-skills
 ```
 sf-{capability}           # Cross-cutting (apex, flow, admin)
 sf-ai-{name}              # AI features (agentforce, copilot)
-sf-product-{name}         # Products (datacloud, omnistudio)
+sf-product-{name}         # Products (datacloud)
 sf-cloud-{name}           # Clouds (sales, service)
 sf-industry-{name}        # Industries (healthcare, finserv)
+sf-industry-commoncore-{name}  # Industries Common Core (omnistudio)
 ```
 
 ### 🔧 Cross-Cutting Skills
@@ -580,7 +582,6 @@ sf-industry-{name}        # Industries (healthcare, finserv)
 | | Skill | Description | Status |
 |--|-------|-------------|--------|
 | ☁️ | `sf-product-datacloud` | Unified profiles, segments | 📋 Planned |
-| 🎨 | `sf-product-omnistudio` | FlexCards, DataRaptors | 📋 Planned |
 
 ### ☁️ Clouds
 | | Skill | Description | Status |
@@ -589,6 +590,15 @@ sf-industry-{name}        # Industries (healthcare, finserv)
 | 🎧 | `sf-cloud-service` | Cases, Omni-Channel, Knowledge | 📋 Planned |
 | 🌐 | `sf-cloud-experience` | Communities, Portals | 📋 Planned |
 
+### 🏢 Industries Common Core
+| | Skill | Description | Status |
+|--|-------|-------------|--------|
+| 🔍 | `sf-industry-commoncore-omnistudio-analyze` | Namespace detection, dependency mapping, impact analysis | ✅ Live |
+| 📊 | `sf-industry-commoncore-datamapper` | Data Mapper (DataRaptor) creation, 100-pt scoring | ✅ Live |
+| 🔗 | `sf-industry-commoncore-integration-procedure` | Integration Procedure orchestration, 110-pt scoring | ✅ Live |
+| 📝 | `sf-industry-commoncore-omniscript` | OmniScript guided experiences, 120-pt scoring | ✅ Live |
+| 🃏 | `sf-industry-commoncore-flexcard` | FlexCard UI components, 130-pt scoring | ✅ Live |
+
 ### 🏢 Industries
 | | Skill | Description | Status |
 |--|-------|-------------|--------|
@@ -596,7 +606,7 @@ sf-industry-{name}        # Industries (healthcare, finserv)
 | 🏦 | `sf-industry-finserv` | KYC, AML, Wealth Management | 📋 Planned |
 | 💵 | `sf-industry-revenue` | CPQ, Billing, Revenue Lifecycle | 📋 Planned |
 
-**Total: 30 skills** (20 skills ✅ live, 10 planned 📋)
+**Total: 30 skills** (25 skills ✅ live, 5 planned 📋)
 
 </details>
 
@@ -609,6 +619,12 @@ sf-industry-{name}        # Industries (healthcare, finserv)
 5. Open a Pull Request
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+## Contributors
+
+| Contributor | Area | Skills |
+|---|---|---|
+| [David Ryan (weytani)](https://github.com/weytani) | Industries Common Core | sf-industry-commoncore-omnistudio-analyze, sf-industry-commoncore-datamapper, sf-industry-commoncore-integration-procedure, sf-industry-commoncore-omniscript, sf-industry-commoncore-flexcard |
 
 ## Issues & Support
 
