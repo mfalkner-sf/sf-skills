@@ -578,6 +578,29 @@ run_health_check() {
         echo -e "  Node.js:      ${YELLOW}○${NC} Not installed (LWC validation disabled)"
     fi
 
+    # sf-docs browser runtime
+    local sf_docs_runtime
+    sf_docs_runtime=$(python3 - <<'PY' 2>/dev/null || true
+import importlib.util
+from pathlib import Path
+
+playwright_ok = importlib.util.find_spec('playwright') is not None
+stealth_ok = importlib.util.find_spec('playwright_stealth') is not None
+browser_ok = False
+if playwright_ok:
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser_ok = Path(p.chromium.executable_path).exists()
+    except Exception:
+        browser_ok = False
+print(f"playwright={'yes' if playwright_ok else 'no'} stealth={'yes' if stealth_ok else 'optional'} chromium={'yes' if browser_ok else 'no'}")
+PY
+)
+    if [[ -n "$sf_docs_runtime" ]]; then
+        echo -e "  sf-docs rt:   ${GREEN}✓${NC} $sf_docs_runtime"
+    fi
+
     echo "────────────────────────────────────────"
 }
 
@@ -597,7 +620,7 @@ show_next_steps() {
     echo "     In Claude Code, type: /sf-apex"
     echo ""
     echo -e "  3. ${BOLD}Use sf-docs for official documentation lookup${NC}"
-    echo "     sf-docs provides guidance for extracting official Salesforce docs online, especially from hard-to-fetch Help pages"
+    echo "     sf-docs provides guidance + browser helpers for official Salesforce docs, including Help, Developer, Architect, and Admin sites"
     echo ""
 
     if [[ "$env_type" == "enterprise" ]]; then

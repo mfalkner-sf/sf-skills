@@ -5,8 +5,10 @@ Tiny wrapper for Salesforce documentation extraction.
 Behavior:
 - If the URL is on help.salesforce.com, automatically route to the dedicated
   Help extractor with shadow DOM heuristics.
-- Otherwise, use a lightweight browser-rendered extractor for Salesforce
-  developer docs.
+- Otherwise, use a lightweight browser-rendered extractor for official
+  Salesforce-owned documentation sites such as developer.salesforce.com,
+  architect.salesforce.com, admin.salesforce.com, and other *.salesforce.com
+  hosts.
 
 Examples:
   python3 skills/sf-docs/scripts/extract_salesforce_doc.py \
@@ -16,6 +18,10 @@ Examples:
   python3 skills/sf-docs/scripts/extract_salesforce_doc.py \
     --url "https://developer.salesforce.com/docs/platform/lwc/guide/use-message-channel-intro.html" \
     --pretty
+
+  python3 skills/sf-docs/scripts/extract_salesforce_doc.py \
+    --url "https://architect.salesforce.com/well-architected/overview" \
+    --stealth --pretty
 """
 
 from __future__ import annotations
@@ -27,6 +33,11 @@ from typing import Any, Dict
 from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
+
+try:
+    from playwright_stealth import stealth_sync
+except ImportError:
+    stealth_sync = None
 
 from extract_help_salesforce import extract as extract_help_salesforce
 
@@ -62,29 +73,47 @@ def looks_like_shell(title: str, text: str) -> bool:
     return any(token in haystack for token in SHELL_TOKENS)
 
 
+def apply_stealth(page) -> bool:
+    if stealth_sync is None:
+        return False
+    try:
+        stealth_sync(page)
+        return True
+    except Exception:
+        return False
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Extract official Salesforce documentation from a URL")
     parser.add_argument("--url", required=True, help="Official Salesforce doc URL")
     parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds (default: 60)")
+    parser.add_argument("--stealth", action="store_true", help="Best-effort stealth mode for bot-sensitive pages")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON")
     return parser.parse_args()
+
+
+def is_official_salesforce_host(host: str) -> bool:
+    host = (host or "").lower()
+    return host == "salesforce.com" or host.endswith(".salesforce.com")
 
 
 def route_kind(url: str) -> str:
     host = (urlparse(url).hostname or "").lower()
     if host.endswith("help.salesforce.com"):
         return "help"
-    if host.endswith("developer.salesforce.com"):
-        return "developer"
+    if is_official_salesforce_host(host):
+        return "official"
     raise SystemExit(f"Unsupported host for sf-docs extractor: {host or url}")
 
 
-def extract_developer_doc(url: str, timeout_seconds: int) -> Dict[str, Any]:
+def extract_official_salesforce_doc(url: str, timeout_seconds: int, use_stealth: bool = False) -> Dict[str, Any]:
     timeout_ms = timeout_seconds * 1000
+    host = (urlparse(url).hostname or "").lower()
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(user_agent=USER_AGENT, viewport={"width": 1440, "height": 1400})
+        stealth_used = apply_stealth(page) if use_stealth else False
 
         try:
             response = page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
@@ -162,15 +191,22 @@ def extract_developer_doc(url: str, timeout_seconds: int) -> Dict[str, Any]:
                   }
 
                   const selectorConfigs = [
-                    { selector: 'article', strategy: 'article', base: 220 },
-                    { selector: 'main', strategy: 'main', base: 180 },
-                    { selector: '.slds-text-longform', strategy: 'longform', base: 160 },
-                    { selector: '.markdown-content', strategy: 'markdown-content', base: 150 },
-                    { selector: '.content-body', strategy: 'content-body', base: 140 },
-                    { selector: 'doc-content-layout', strategy: 'legacy-doc-layout', base: 140 },
-                    { selector: 'doc-xml-content', strategy: 'legacy-doc-xml', base: 130 },
+                    { selector: 'article', strategy: 'article', base: 260 },
+                    { selector: 'main', strategy: 'main', base: 220 },
+                    { selector: '[role="main"]', strategy: 'role-main', base: 220 },
+                    { selector: '.slds-text-longform', strategy: 'longform', base: 200 },
+                    { selector: '.markdown-content', strategy: 'markdown-content', base: 190 },
+                    { selector: '.content-body', strategy: 'content-body', base: 180 },
+                    { selector: '.article-body', strategy: 'article-body', base: 180 },
+                    { selector: '.article-content', strategy: 'article-content', base: 180 },
+                    { selector: '.post-content', strategy: 'post-content', base: 170 },
+                    { selector: '.main-content', strategy: 'main-content', base: 170 },
+                    { selector: '.tds-content', strategy: 'tds-content', base: 165 },
+                    { selector: '.siteforceContentArea .content', strategy: 'siteforce-content', base: 160 },
+                    { selector: 'doc-content-layout', strategy: 'legacy-doc-layout', base: 150 },
+                    { selector: 'doc-xml-content', strategy: 'legacy-doc-xml', base: 145 },
                     { selector: 'doc-amf-reference .markdown-content', strategy: 'legacy-amf-markdown', base: 150 },
-                    { selector: 'main .content, article .content', strategy: 'content', base: 120 },
+                    { selector: 'main .content, article .content', strategy: 'nested-content', base: 140 },
                   ];
 
                   const candidates = [];
@@ -184,6 +220,8 @@ def extract_developer_doc(url: str, timeout_seconds: int) -> Dict[str, Any]:
                       const lowered = text.toLowerCase();
                       if (lowered.includes(title.toLowerCase())) score += 50;
                       if (lowered.includes('table of contents')) score -= 80;
+                      if (lowered.includes('cookie preferences')) score -= 120;
+                      if (lowered.includes('sign in')) score -= 120;
                       candidates.push({
                         strategy: cfg.strategy,
                         selector: cfg.selector,
@@ -231,9 +269,14 @@ def extract_developer_doc(url: str, timeout_seconds: int) -> Dict[str, Any]:
                 "url": payload.get("url", url),
                 "httpStatus": http_status,
                 "title": payload.get("title") or "Untitled",
+                "host": host,
+                "hostKind": "official-salesforce",
                 "strategy": payload.get("strategy"),
                 "selector": payload.get("selector"),
                 "likelyShell": likely_shell,
+                "stealthRequested": use_stealth,
+                "stealthAvailable": stealth_sync is not None,
+                "stealthUsed": stealth_used,
                 "text": text,
                 "contentLinks": payload.get("contentLinks", []),
                 "childLinks": payload.get("childLinks", []),
@@ -249,11 +292,12 @@ def main() -> int:
     kind = route_kind(args.url)
 
     if kind == "help":
-        result = extract_help_salesforce(args.url, args.timeout)
+        result = extract_help_salesforce(args.url, args.timeout, use_stealth=args.stealth)
         result["routedVia"] = "extract_help_salesforce"
+        result.setdefault("hostKind", "help")
     else:
-        result = extract_developer_doc(args.url, args.timeout)
-        result["routedVia"] = "generic_developer_extractor"
+        result = extract_official_salesforce_doc(args.url, args.timeout, use_stealth=args.stealth)
+        result["routedVia"] = "generic_official_salesforce_extractor"
 
     dump = json.dumps(result, indent=2 if args.pretty else None)
     print(dump)

@@ -101,6 +101,8 @@ LSP_ENGINE_SRC_DIR = "shared/lsp-engine"
 SKILLS_REGISTRY = "shared/hooks/skills-registry.json"
 AGENTS_DIR = "agents"  # FDE + PS agent definitions
 AGENT_PREFIXES = ("fde-", "ps-")  # Agent file prefixes managed by installer
+SF_DOCS_REQUIREMENTS = Path("skills") / "sf-docs" / "requirements.txt"
+SF_DOCS_BROWSER = "chromium"
 
 # Temp file patterns to clean
 TEMP_FILE_PATTERNS = [
@@ -126,6 +128,137 @@ def get_python_command() -> str:
             return f'"{exe}"'
         return exe
     return "python3"
+
+
+def _in_virtualenv() -> bool:
+    return getattr(sys, "base_prefix", sys.prefix) != sys.prefix
+
+
+def _python_module_available(module_name: str) -> bool:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import importlib.util, sys; "
+                f"sys.exit(0 if importlib.util.find_spec({module_name!r}) else 1)"
+            ),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+    )
+    return result.returncode == 0
+
+
+def _ensure_pip_available() -> bool:
+    probe = subprocess.run(
+        [sys.executable, "-m", "pip", "--version"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+    )
+    if probe.returncode == 0:
+        return True
+
+    bootstrap = subprocess.run(
+        [sys.executable, "-m", "ensurepip", "--upgrade"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=180,
+    )
+    if bootstrap.returncode != 0:
+        return False
+
+    retry = subprocess.run(
+        [sys.executable, "-m", "pip", "--version"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=30,
+    )
+    return retry.returncode == 0
+
+
+def _playwright_browser_installed(browser_name: str = SF_DOCS_BROWSER) -> bool:
+    code = f"""
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    browser = getattr(p, {browser_name!r})
+    raise SystemExit(0 if Path(browser.executable_path).exists() else 1)
+"""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
+def install_sf_docs_runtime(source_dir: Path, dry_run: bool = False) -> Tuple[bool, List[str]]:
+    """Best-effort install for sf-docs browser extraction dependencies."""
+    notes: List[str] = []
+    requirements_file = source_dir / SF_DOCS_REQUIREMENTS
+    if not requirements_file.exists():
+        return False, [f"sf-docs runtime requirements missing: {requirements_file}"]
+
+    packages = [
+        line.strip()
+        for line in requirements_file.read_text().splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    modules_by_package = {pkg: pkg.replace("-", "_") for pkg in packages}
+    missing_packages = [pkg for pkg, module in modules_by_package.items() if not _python_module_available(module)]
+    browser_installed = _playwright_browser_installed(SF_DOCS_BROWSER) if _python_module_available("playwright") else False
+
+    if dry_run:
+        if missing_packages:
+            notes.append(f"Would install sf-docs Python packages: {', '.join(missing_packages)}")
+        else:
+            notes.append("sf-docs Python packages already installed")
+        if browser_installed:
+            notes.append(f"Playwright {SF_DOCS_BROWSER} browser already installed")
+        else:
+            notes.append(f"Would install Playwright {SF_DOCS_BROWSER} browser")
+        return True, notes
+
+    if missing_packages:
+        if not _ensure_pip_available():
+            return False, ["pip is unavailable; could not install sf-docs Python packages"]
+
+        pip_cmd = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check"]
+        if not _in_virtualenv():
+            pip_cmd.append("--user")
+        pip_cmd.extend(missing_packages)
+        try:
+            pip_result = subprocess.run(pip_cmd, capture_output=True, text=True, timeout=1800)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return False, [f"Failed to install sf-docs Python packages: {exc}"]
+        if pip_result.returncode != 0:
+            tail = (pip_result.stderr or pip_result.stdout or "pip install failed").strip().splitlines()[-1]
+            return False, [f"Failed to install sf-docs Python packages: {tail}"]
+        notes.append(f"Installed sf-docs Python packages: {', '.join(missing_packages)}")
+    else:
+        notes.append("sf-docs Python packages already installed")
+
+    if not _playwright_browser_installed(SF_DOCS_BROWSER):
+        browser_cmd = [sys.executable, "-m", "playwright", "install", SF_DOCS_BROWSER]
+        try:
+            browser_result = subprocess.run(browser_cmd, capture_output=True, text=True, timeout=1800)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return False, notes + [f"Failed to install Playwright {SF_DOCS_BROWSER} browser: {exc}"]
+        if browser_result.returncode != 0:
+            tail = (browser_result.stderr or browser_result.stdout or "playwright install failed").strip().splitlines()[-1]
+            return False, notes + [f"Failed to install Playwright {SF_DOCS_BROWSER} browser: {tail}"]
+        notes.append(f"Installed Playwright {SF_DOCS_BROWSER} browser")
+    else:
+        notes.append(f"Playwright {SF_DOCS_BROWSER} browser already installed")
+
+    return True, notes
 
 
 # ============================================================================
@@ -2311,6 +2444,12 @@ def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bo
             if installer_source.exists():
                 shutil.copy2(installer_source, INSTALLER_FILE)
 
+            sf_docs_runtime_ok, sf_docs_runtime_notes = install_sf_docs_runtime(source_dir)
+            for note in sf_docs_runtime_notes:
+                print_substep(note)
+            if not sf_docs_runtime_ok:
+                print_warning("sf-docs browser runtime setup was incomplete; extraction helpers may need manual setup")
+
             # Re-exec detection: if the installer binary changed, hand off to the
             # new version for Steps 4-5. This solves the bootstrapping problem where
             # the OLD process's get_hooks_config() references deleted hooks.
@@ -2356,6 +2495,9 @@ def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bo
             print_substep(f"{skill_count} skills would be installed")
             if agent_count > 0:
                 print_substep(f"{agent_count} agents would be installed (FDE + PS)")
+            _, sf_docs_runtime_notes = install_sf_docs_runtime(source_dir, dry_run=True)
+            for note in sf_docs_runtime_notes:
+                print_substep(note)
 
         # Step 4: Configure Claude Code
         print_step(4, 5, "Configuring Claude Code...", "...")
@@ -2418,7 +2560,7 @@ def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bo
    Version:  {version}
    Skills:   ~/.claude/skills/sf-*/
    Hooks:    ~/.claude/hooks/
-   sf-docs:  online Salesforce docs retrieval guidance
+   sf-docs:  official Salesforce docs guidance + browser helpers
 """)
         else:
             # Full message when run directly
@@ -2430,7 +2572,7 @@ def cmd_install(dry_run: bool = False, force: bool = False, called_from_bash: bo
    Skills:   ~/.claude/skills/sf-*/
    Hooks:    ~/.claude/hooks/
    LSP:      ~/.claude/lsp-engine/
-   sf-docs:  online Salesforce docs retrieval guidance
+   sf-docs:  official Salesforce docs guidance + browser helpers
 
    🚀 Next steps:
    1. Restart Claude Code (or start new session)
@@ -2526,7 +2668,7 @@ def cmd_finalize_install(version: str, commit_sha: Optional[str] = None,
    Version:  {version}
    Skills:   ~/.claude/skills/sf-*/
    Hooks:    ~/.claude/hooks/
-   sf-docs:  online Salesforce docs retrieval guidance
+   sf-docs:  official Salesforce docs guidance + browser helpers
 """)
         else:
             print(f"""
@@ -2537,7 +2679,7 @@ def cmd_finalize_install(version: str, commit_sha: Optional[str] = None,
    Skills:   ~/.claude/skills/sf-*/
    Hooks:    ~/.claude/hooks/
    LSP:      ~/.claude/lsp-engine/
-   sf-docs:  online Salesforce docs retrieval guidance
+   sf-docs:  official Salesforce docs guidance + browser helpers
 
    🚀 Next steps:
    1. Restart Claude Code (or start new session)
@@ -2813,6 +2955,15 @@ def cmd_status() -> int:
 
     # sf-docs retrieval mode
     print(f"sf-docs:     {c('✓', Colors.GREEN)} online Salesforce docs retrieval guidance")
+    playwright_ok = _python_module_available("playwright")
+    stealth_ok = _python_module_available("playwright_stealth")
+    browser_ok = _playwright_browser_installed(SF_DOCS_BROWSER) if playwright_ok else False
+    runtime_bits = [
+        f"playwright={c('yes', Colors.GREEN) if playwright_ok else c('no', Colors.YELLOW)}",
+        f"stealth={c('yes', Colors.GREEN) if stealth_ok else c('optional', Colors.DIM)}",
+        f"{SF_DOCS_BROWSER}={c('yes', Colors.GREEN) if browser_ok else c('no', Colors.YELLOW)}",
+    ]
+    print(f"sf-docs rt:  {'  '.join(runtime_bits)}")
 
     # Check settings.json
     if SETTINGS_FILE.exists():

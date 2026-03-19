@@ -33,6 +33,11 @@ from urllib.parse import urlparse
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
+try:
+    from playwright_stealth import stealth_sync
+except ImportError:
+    stealth_sync = None
+
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -57,6 +62,16 @@ NOISE_LINES = {
     "close",
     "search",
 }
+
+
+def apply_stealth(page) -> bool:
+    if stealth_sync is None:
+        return False
+    try:
+        stealth_sync(page)
+        return True
+    except Exception:
+        return False
 
 
 def _looks_like_section_banner(line: str) -> bool:
@@ -232,6 +247,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Extract article text from help.salesforce.com")
     parser.add_argument("--url", required=True, help="help.salesforce.com article URL")
     parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds (default: 60)")
+    parser.add_argument("--stealth", action="store_true", help="Best-effort stealth mode for bot-sensitive pages")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON")
     return parser.parse_args()
 
@@ -242,12 +258,13 @@ def validate_url(url: str) -> None:
         raise SystemExit(f"URL must be on help.salesforce.com: {url}")
 
 
-def extract(url: str, timeout_seconds: int) -> Dict[str, Any]:
+def extract(url: str, timeout_seconds: int, use_stealth: bool = False) -> Dict[str, Any]:
     timeout_ms = timeout_seconds * 1000
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(user_agent=USER_AGENT, viewport={"width": 1440, "height": 1400})
+        stealth_used = apply_stealth(page) if use_stealth else False
 
         try:
             response = page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
@@ -426,6 +443,9 @@ def extract(url: str, timeout_seconds: int) -> Dict[str, Any]:
                 "strategy": payload.get("strategy"),
                 "selector": payload.get("selector"),
                 "likelyShell": likely_shell,
+                "stealthRequested": use_stealth,
+                "stealthAvailable": stealth_sync is not None,
+                "stealthUsed": stealth_used,
                 "rawText": raw_text,
                 "text": cleaned_text,
                 "intro": structured.get("intro", ""),
@@ -445,7 +465,7 @@ def extract(url: str, timeout_seconds: int) -> Dict[str, Any]:
 def main() -> int:
     args = parse_args()
     validate_url(args.url)
-    result = extract(args.url, args.timeout)
+    result = extract(args.url, args.timeout, use_stealth=args.stealth)
     dump = json.dumps(result, indent=2 if args.pretty else None)
     print(dump)
     return 0 if result.get("ok") else 1

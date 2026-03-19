@@ -9,6 +9,7 @@ Official Salesforce documentation retrieval guidance for `sf-skills`.
 It gives a practical retrieval playbook for official Salesforce docs on the public web, especially when:
 - `developer.salesforce.com` pages are JS-heavy
 - `help.salesforce.com` pages return shell content
+- `architect.salesforce.com` / `admin.salesforce.com` pages need browser-rendered extraction
 - the real answer is on a child page, not the guide homepage
 
 ## What it is not
@@ -40,7 +41,13 @@ python3 skills/sf-docs/scripts/extract_salesforce_doc.py \
 
 Behavior:
 - automatically routes `help.salesforce.com` URLs into the dedicated Help extractor
-- uses a lightweight browser-rendered path for `developer.salesforce.com` URLs
+- supports official Salesforce-owned doc hosts such as `developer.salesforce.com`, `architect.salesforce.com`, `admin.salesforce.com`, and other `*.salesforce.com` pages
+- supports optional best-effort stealth mode via `--stealth`
+
+Dependencies for the helper scripts live in:
+- `skills/sf-docs/requirements.txt`
+
+The installer now attempts to install those Python packages plus the Playwright Chromium browser automatically.
 
 The underlying Help extractor is still available directly at:
 
