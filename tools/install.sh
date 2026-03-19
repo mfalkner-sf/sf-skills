@@ -581,20 +581,45 @@ run_health_check() {
     # sf-docs browser runtime
     local sf_docs_runtime
     sf_docs_runtime=$(python3 - <<'PY' 2>/dev/null || true
-import importlib.util
+import os
+import subprocess
 from pathlib import Path
 
-playwright_ok = importlib.util.find_spec('playwright') is not None
-stealth_ok = importlib.util.find_spec('playwright_stealth') is not None
+runtime_root = Path.home() / '.claude' / '.sf-docs-runtime'
+venv_root = runtime_root / 'venv'
+candidates = [venv_root / 'bin' / 'python', venv_root / 'bin' / 'python3', venv_root / 'Scripts' / 'python.exe']
+runtime_python = next((p for p in candidates if p.exists()), None)
+
+def module_available(python_path, module_name):
+    if not python_path:
+        return False
+    result = subprocess.run(
+        [str(python_path), '-c', f"import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('{module_name}') else 1)"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, 'PLAYWRIGHT_BROWSERS_PATH': str(runtime_root / 'ms-playwright')},
+    )
+    return result.returncode == 0
+
+playwright_ok = module_available(runtime_python, 'playwright')
+stealth_ok = module_available(runtime_python, 'playwright_stealth')
 browser_ok = False
 if playwright_ok:
     try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            browser_ok = Path(p.chromium.executable_path).exists()
+        code = "from pathlib import Path; from playwright.sync_api import sync_playwright; " \
+               "import sys; " \
+               "\nwith sync_playwright() as p:\n" \
+               "    sys.exit(0 if Path(p.chromium.executable_path).exists() else 1)"
+        result = subprocess.run(
+            [str(runtime_python), '-c', code],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env={**os.environ, 'PLAYWRIGHT_BROWSERS_PATH': str(runtime_root / 'ms-playwright')},
+        )
+        browser_ok = result.returncode == 0
     except Exception:
         browser_ok = False
-print(f"playwright={'yes' if playwright_ok else 'no'} stealth={'yes' if stealth_ok else 'optional'} chromium={'yes' if browser_ok else 'no'}")
+print(f"venv={'yes' if runtime_python else 'no'} playwright={'yes' if playwright_ok else 'no'} stealth={'yes' if stealth_ok else 'optional'} chromium={'yes' if browser_ok else 'no'}")
 PY
 )
     if [[ -n "$sf_docs_runtime" ]]; then

@@ -30,8 +30,17 @@ import sys
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse
 
+from runtime_bootstrap import maybe_reexec_in_sf_docs_runtime
+
+maybe_reexec_in_sf_docs_runtime(__file__)
+
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
+
+try:
+    from playwright_stealth import Stealth
+except ImportError:
+    Stealth = None
 
 try:
     from playwright_stealth import stealth_sync
@@ -65,13 +74,19 @@ NOISE_LINES = {
 
 
 def apply_stealth(page) -> bool:
-    if stealth_sync is None:
-        return False
-    try:
-        stealth_sync(page)
-        return True
-    except Exception:
-        return False
+    if stealth_sync is not None:
+        try:
+            stealth_sync(page)
+            return True
+        except Exception:
+            pass
+    if Stealth is not None:
+        try:
+            Stealth().apply_stealth_sync(page)
+            return True
+        except Exception:
+            return False
+    return False
 
 
 def _looks_like_section_banner(line: str) -> bool:
@@ -444,7 +459,7 @@ def extract(url: str, timeout_seconds: int, use_stealth: bool = False) -> Dict[s
                 "selector": payload.get("selector"),
                 "likelyShell": likely_shell,
                 "stealthRequested": use_stealth,
-                "stealthAvailable": stealth_sync is not None,
+                "stealthAvailable": stealth_sync is not None or Stealth is not None,
                 "stealthUsed": stealth_used,
                 "rawText": raw_text,
                 "text": cleaned_text,

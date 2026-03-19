@@ -47,7 +47,7 @@ Behavior:
 Dependencies for the helper scripts live in:
 - `skills/sf-docs/requirements.txt`
 
-The installer now attempts to install those Python packages plus the Playwright Chromium browser automatically.
+The installer now sets up an isolated sf-docs runtime under `~/.claude/.sf-docs-runtime`, installs those Python packages there, and installs the Playwright Chromium browser automatically during install/update.
 
 The underlying Help extractor is still available directly at:
 

@@ -47,6 +47,7 @@ import tempfile
 import time
 import urllib.request
 import urllib.error
+import venv
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -103,6 +104,9 @@ AGENTS_DIR = "agents"  # FDE + PS agent definitions
 AGENT_PREFIXES = ("fde-", "ps-")  # Agent file prefixes managed by installer
 SF_DOCS_REQUIREMENTS = Path("skills") / "sf-docs" / "requirements.txt"
 SF_DOCS_BROWSER = "chromium"
+SF_DOCS_RUNTIME_DIR = CLAUDE_DIR / ".sf-docs-runtime"
+SF_DOCS_RUNTIME_VENV = SF_DOCS_RUNTIME_DIR / "venv"
+SF_DOCS_PLAYWRIGHT_BROWSERS_DIR = SF_DOCS_RUNTIME_DIR / "ms-playwright"
 
 # Temp file patterns to clean
 TEMP_FILE_PATTERNS = [
@@ -130,56 +134,51 @@ def get_python_command() -> str:
     return "python3"
 
 
-def _in_virtualenv() -> bool:
-    return getattr(sys, "base_prefix", sys.prefix) != sys.prefix
+def _sf_docs_runtime_python_path() -> Path:
+    candidates = [
+        SF_DOCS_RUNTIME_VENV / "bin" / "python",
+        SF_DOCS_RUNTIME_VENV / "bin" / "python3",
+        SF_DOCS_RUNTIME_VENV / "Scripts" / "python.exe",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0] if os.name != "nt" else candidates[-1]
 
 
-def _python_module_available(module_name: str) -> bool:
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            (
-                "import importlib.util, sys; "
-                f"sys.exit(0 if importlib.util.find_spec({module_name!r}) else 1)"
-            ),
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        timeout=30,
-    )
+def _sf_docs_runtime_env() -> Dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(SF_DOCS_PLAYWRIGHT_BROWSERS_DIR))
+    env.setdefault("SF_DOCS_RUNTIME_ROOT", str(SF_DOCS_RUNTIME_DIR))
+    return env
+
+
+def _python_module_available(python_executable: Path, module_name: str) -> bool:
+    if not python_executable.exists():
+        return False
+    try:
+        result = subprocess.run(
+            [
+                str(python_executable),
+                "-c",
+                (
+                    "import importlib.util, sys; "
+                    f"sys.exit(0 if importlib.util.find_spec({module_name!r}) else 1)"
+                ),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+            env=_sf_docs_runtime_env(),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
     return result.returncode == 0
 
 
-def _ensure_pip_available() -> bool:
-    probe = subprocess.run(
-        [sys.executable, "-m", "pip", "--version"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        timeout=30,
-    )
-    if probe.returncode == 0:
-        return True
-
-    bootstrap = subprocess.run(
-        [sys.executable, "-m", "ensurepip", "--upgrade"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        timeout=180,
-    )
-    if bootstrap.returncode != 0:
+def _playwright_browser_installed(python_executable: Path, browser_name: str = SF_DOCS_BROWSER) -> bool:
+    if not python_executable.exists():
         return False
-
-    retry = subprocess.run(
-        [sys.executable, "-m", "pip", "--version"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        timeout=30,
-    )
-    return retry.returncode == 0
-
-
-def _playwright_browser_installed(browser_name: str = SF_DOCS_BROWSER) -> bool:
     code = f"""
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -189,74 +188,131 @@ with sync_playwright() as p:
 """
     try:
         result = subprocess.run(
-            [sys.executable, "-c", code],
+            [str(python_executable), "-c", code],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             timeout=60,
+            env=_sf_docs_runtime_env(),
         )
     except (OSError, subprocess.TimeoutExpired):
         return False
     return result.returncode == 0
 
 
+def get_sf_docs_runtime_status() -> Dict[str, Any]:
+    python_path = _sf_docs_runtime_python_path()
+    python_exists = python_path.exists()
+    playwright_ok = _python_module_available(python_path, "playwright") if python_exists else False
+    stealth_ok = _python_module_available(python_path, "playwright_stealth") if python_exists else False
+    browser_ok = _playwright_browser_installed(python_path, SF_DOCS_BROWSER) if playwright_ok else False
+    return {
+        "runtimeDir": SF_DOCS_RUNTIME_DIR,
+        "venvDir": SF_DOCS_RUNTIME_VENV,
+        "pythonPath": python_path,
+        "pythonExists": python_exists,
+        "playwright": playwright_ok,
+        "stealth": stealth_ok,
+        "browser": browser_ok,
+    }
+
+
+def _create_sf_docs_runtime_venv() -> Tuple[bool, str]:
+    try:
+        SF_DOCS_RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+        builder = venv.EnvBuilder(with_pip=True, clear=False)
+        builder.create(str(SF_DOCS_RUNTIME_VENV))
+        return True, f"Created sf-docs runtime venv at {SF_DOCS_RUNTIME_VENV}"
+    except Exception as exc:
+        return False, f"Failed to create sf-docs runtime venv: {exc}"
+
+
 def install_sf_docs_runtime(source_dir: Path, dry_run: bool = False) -> Tuple[bool, List[str]]:
-    """Best-effort install for sf-docs browser extraction dependencies."""
+    """Install sf-docs browser-extraction dependencies into an isolated runtime venv."""
     notes: List[str] = []
     requirements_file = source_dir / SF_DOCS_REQUIREMENTS
     if not requirements_file.exists():
         return False, [f"sf-docs runtime requirements missing: {requirements_file}"]
 
-    packages = [
-        line.strip()
-        for line in requirements_file.read_text().splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    ]
-    modules_by_package = {pkg: pkg.replace("-", "_") for pkg in packages}
-    missing_packages = [pkg for pkg, module in modules_by_package.items() if not _python_module_available(module)]
-    browser_installed = _playwright_browser_installed(SF_DOCS_BROWSER) if _python_module_available("playwright") else False
+    status_before = get_sf_docs_runtime_status()
+    runtime_python = Path(status_before["pythonPath"])
 
     if dry_run:
-        if missing_packages:
-            notes.append(f"Would install sf-docs Python packages: {', '.join(missing_packages)}")
+        if status_before["pythonExists"]:
+            notes.append(f"sf-docs runtime venv already present: {SF_DOCS_RUNTIME_VENV}")
         else:
-            notes.append("sf-docs Python packages already installed")
-        if browser_installed:
-            notes.append(f"Playwright {SF_DOCS_BROWSER} browser already installed")
+            notes.append(f"Would create sf-docs runtime venv: {SF_DOCS_RUNTIME_VENV}")
+        notes.append("Would sync sf-docs Python packages from requirements.txt")
+        if status_before["browser"]:
+            notes.append(f"Playwright {SF_DOCS_BROWSER} browser already installed in sf-docs runtime")
         else:
-            notes.append(f"Would install Playwright {SF_DOCS_BROWSER} browser")
+            notes.append(f"Would install Playwright {SF_DOCS_BROWSER} browser in sf-docs runtime")
         return True, notes
 
-    if missing_packages:
-        if not _ensure_pip_available():
-            return False, ["pip is unavailable; could not install sf-docs Python packages"]
-
-        pip_cmd = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check"]
-        if not _in_virtualenv():
-            pip_cmd.append("--user")
-        pip_cmd.extend(missing_packages)
-        try:
-            pip_result = subprocess.run(pip_cmd, capture_output=True, text=True, timeout=1800)
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            return False, [f"Failed to install sf-docs Python packages: {exc}"]
-        if pip_result.returncode != 0:
-            tail = (pip_result.stderr or pip_result.stdout or "pip install failed").strip().splitlines()[-1]
-            return False, [f"Failed to install sf-docs Python packages: {tail}"]
-        notes.append(f"Installed sf-docs Python packages: {', '.join(missing_packages)}")
+    if not status_before["pythonExists"]:
+        ok, message = _create_sf_docs_runtime_venv()
+        notes.append(message)
+        if not ok:
+            return False, notes
+        runtime_python = _sf_docs_runtime_python_path()
     else:
-        notes.append("sf-docs Python packages already installed")
+        notes.append(f"sf-docs runtime venv already present: {SF_DOCS_RUNTIME_VENV}")
 
-    if not _playwright_browser_installed(SF_DOCS_BROWSER):
-        browser_cmd = [sys.executable, "-m", "playwright", "install", SF_DOCS_BROWSER]
+    pip_cmd = [
+        str(runtime_python),
+        "-m",
+        "pip",
+        "install",
+        "--disable-pip-version-check",
+        "--upgrade",
+        "-r",
+        str(requirements_file),
+    ]
+    try:
+        pip_result = subprocess.run(
+            pip_cmd,
+            capture_output=True,
+            text=True,
+            timeout=1800,
+            env=_sf_docs_runtime_env(),
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, notes + [f"Failed to install sf-docs Python packages: {exc}"]
+    if pip_result.returncode != 0:
+        tail = (pip_result.stderr or pip_result.stdout or "pip install failed").strip().splitlines()[-1]
+        return False, notes + [f"Failed to install sf-docs Python packages: {tail}"]
+    notes.append("Synced sf-docs Python packages into isolated runtime venv")
+
+    status_after_pip = get_sf_docs_runtime_status()
+    if not status_after_pip["playwright"]:
+        return False, notes + ["sf-docs runtime is missing Playwright after pip install"]
+
+    if not status_after_pip["browser"]:
+        browser_cmd = [str(runtime_python), "-m", "playwright", "install", SF_DOCS_BROWSER]
         try:
-            browser_result = subprocess.run(browser_cmd, capture_output=True, text=True, timeout=1800)
+            browser_result = subprocess.run(
+                browser_cmd,
+                capture_output=True,
+                text=True,
+                timeout=1800,
+                env=_sf_docs_runtime_env(),
+            )
         except (OSError, subprocess.TimeoutExpired) as exc:
             return False, notes + [f"Failed to install Playwright {SF_DOCS_BROWSER} browser: {exc}"]
         if browser_result.returncode != 0:
             tail = (browser_result.stderr or browser_result.stdout or "playwright install failed").strip().splitlines()[-1]
             return False, notes + [f"Failed to install Playwright {SF_DOCS_BROWSER} browser: {tail}"]
-        notes.append(f"Installed Playwright {SF_DOCS_BROWSER} browser")
+        notes.append(f"Installed Playwright {SF_DOCS_BROWSER} browser into sf-docs runtime")
     else:
-        notes.append(f"Playwright {SF_DOCS_BROWSER} browser already installed")
+        notes.append(f"Playwright {SF_DOCS_BROWSER} browser already installed in sf-docs runtime")
+
+    status_final = get_sf_docs_runtime_status()
+    if not status_final["playwright"] or not status_final["browser"]:
+        return False, notes + ["sf-docs runtime verification failed after install"]
+
+    if status_final["stealth"]:
+        notes.append("playwright-stealth available in sf-docs runtime")
+    else:
+        notes.append("playwright-stealth not installed in sf-docs runtime")
 
     return True, notes
 
@@ -1694,6 +1750,10 @@ def cleanup_installed_files(dry_run: bool = False):
     if LSP_DIR.exists() and not dry_run:
         safe_rmtree(LSP_DIR)
 
+    # Remove sf-docs isolated runtime
+    if SF_DOCS_RUNTIME_DIR.exists() and not dry_run:
+        safe_rmtree(SF_DOCS_RUNTIME_DIR)
+
     # Remove metadata and installer
     for f in [META_FILE, INSTALLER_FILE]:
         if f.exists() and not dry_run:
@@ -2139,6 +2199,16 @@ def verify_installation() -> Tuple[bool, List[str]]:
         for wrapper in required_wrappers:
             if not (LSP_DIR / wrapper).exists():
                 issues.append(f"Missing: lsp-engine/{wrapper}")
+
+    # Check sf-docs isolated runtime
+    sf_docs_runtime = get_sf_docs_runtime_status()
+    if not sf_docs_runtime["pythonExists"]:
+        issues.append(f"Missing sf-docs runtime venv: {SF_DOCS_RUNTIME_VENV}")
+    else:
+        if not sf_docs_runtime["playwright"]:
+            issues.append("sf-docs runtime missing Playwright")
+        if not sf_docs_runtime["browser"]:
+            issues.append(f"sf-docs runtime missing Playwright {SF_DOCS_BROWSER} browser")
 
     # Check settings.json has hooks
     if SETTINGS_FILE.exists():
@@ -2804,6 +2874,7 @@ def cmd_uninstall(dry_run: bool = False, force: bool = False) -> int:
     print(f"     • sf-* skills from {SKILLS_DIR}")
     print(f"     • {HOOKS_DIR}")
     print(f"     • {LSP_DIR}")
+    print(f"     • {SF_DOCS_RUNTIME_DIR} (sf-docs runtime)")
     print(f"     • sf-skills hooks from {SETTINGS_FILE}")
     print(f"     • FDE + PS agents from {CLAUDE_DIR / 'agents'}")
     print(f"     • {META_FILE}")
@@ -2954,14 +3025,13 @@ def cmd_status() -> int:
         print(f"LSP count:   {c('⚠️ Not installed', Colors.YELLOW)}")
 
     # sf-docs retrieval mode
-    print(f"sf-docs:     {c('✓', Colors.GREEN)} online Salesforce docs retrieval guidance")
-    playwright_ok = _python_module_available("playwright")
-    stealth_ok = _python_module_available("playwright_stealth")
-    browser_ok = _playwright_browser_installed(SF_DOCS_BROWSER) if playwright_ok else False
+    print(f"sf-docs:     {c('✓', Colors.GREEN)} official Salesforce docs guidance + browser helpers")
+    sf_docs_runtime = get_sf_docs_runtime_status()
     runtime_bits = [
-        f"playwright={c('yes', Colors.GREEN) if playwright_ok else c('no', Colors.YELLOW)}",
-        f"stealth={c('yes', Colors.GREEN) if stealth_ok else c('optional', Colors.DIM)}",
-        f"{SF_DOCS_BROWSER}={c('yes', Colors.GREEN) if browser_ok else c('no', Colors.YELLOW)}",
+        f"venv={c('yes', Colors.GREEN) if sf_docs_runtime['pythonExists'] else c('no', Colors.YELLOW)}",
+        f"playwright={c('yes', Colors.GREEN) if sf_docs_runtime['playwright'] else c('no', Colors.YELLOW)}",
+        f"stealth={c('yes', Colors.GREEN) if sf_docs_runtime['stealth'] else c('optional', Colors.DIM)}",
+        f"{SF_DOCS_BROWSER}={c('yes', Colors.GREEN) if sf_docs_runtime['browser'] else c('no', Colors.YELLOW)}",
     ]
     print(f"sf-docs rt:  {'  '.join(runtime_bits)}")
 

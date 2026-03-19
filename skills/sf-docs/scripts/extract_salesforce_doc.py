@@ -32,8 +32,17 @@ import re
 from typing import Any, Dict
 from urllib.parse import urlparse
 
+from runtime_bootstrap import maybe_reexec_in_sf_docs_runtime
+
+maybe_reexec_in_sf_docs_runtime(__file__)
+
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
+
+try:
+    from playwright_stealth import Stealth
+except ImportError:
+    Stealth = None
 
 try:
     from playwright_stealth import stealth_sync
@@ -75,13 +84,19 @@ def looks_like_shell(title: str, text: str) -> bool:
 
 
 def apply_stealth(page) -> bool:
-    if stealth_sync is None:
-        return False
-    try:
-        stealth_sync(page)
-        return True
-    except Exception:
-        return False
+    if stealth_sync is not None:
+        try:
+            stealth_sync(page)
+            return True
+        except Exception:
+            pass
+    if Stealth is not None:
+        try:
+            Stealth().apply_stealth_sync(page)
+            return True
+        except Exception:
+            return False
+    return False
 
 
 def parse_args() -> argparse.Namespace:
@@ -292,7 +307,7 @@ def extract_official_salesforce_doc(url: str, timeout_seconds: int, use_stealth:
                 "selector": payload.get("selector"),
                 "likelyShell": likely_shell,
                 "stealthRequested": use_stealth,
-                "stealthAvailable": stealth_sync is not None,
+                "stealthAvailable": stealth_sync is not None or Stealth is not None,
                 "stealthUsed": stealth_used,
                 "text": text,
                 "contentLinks": payload.get("contentLinks", []),
