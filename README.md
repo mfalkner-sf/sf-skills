@@ -95,6 +95,8 @@ Use this path when you want to:
 
 ### Managing install.py
 
+> After sf-skills is installed, use the installed copy at `~/.claude/sf-skills-install.py` for normal updates. Use `tools/install.py` only when developing or testing from a cloned repo checkout.
+
 ```bash
 python3 ~/.claude/sf-skills-install.py --status            # Check version and install state
 python3 ~/.claude/sf-skills-install.py --update            # Update to latest
