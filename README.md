@@ -666,7 +666,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 | August Krys | Agentforce metadata modernization, metadata/FLS improvements, data/deploy workflow updates | sf-ai-agentforce, sf-ai-agentscript, sf-metadata, sf-data, sf-deploy |
 | [Gnanasekaran Thoppae](https://github.com/gthoppae) | Data Cloud product family | sf-datacloud, sf-datacloud-connect, sf-datacloud-prepare, sf-datacloud-harmonize, sf-datacloud-segment, sf-datacloud-act, sf-datacloud-retrieve |
 | [David Ryan (weytani)](https://github.com/weytani) | Industries Common Core | sf-industry-commoncore-omnistudio-analyze, sf-industry-commoncore-datamapper, sf-industry-commoncore-integration-procedure, sf-industry-commoncore-omniscript, sf-industry-commoncore-flexcard |
-| [Shreyas Dhond (ShreyasD)](https://github.com/ShreyasD) | Industries Common Core callable Apex | sf-industry-commoncore-callable-apex |
+| [Shreyas Dhond, CTA (ShreyasD)](https://github.com/ShreyasD) | Primary contributor — Industries Common Core callable Apex | sf-industry-commoncore-callable-apex |
 
 ## Issues & Support
 

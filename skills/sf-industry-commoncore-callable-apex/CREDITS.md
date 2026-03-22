@@ -8,6 +8,14 @@ resources whose ideas, patterns, and best practices have shaped this skill.
 
 ## Authors & Contributors
 
+### Primary Contributor
+**Shreyas Dhond (CTA)**
+
+Key contributions:
+- Contributed the `sf-industry-commoncore-callable-apex` skill
+- Strengthened callable guidance, migration patterns, and bundled examples
+- Expanded coverage for `System.Callable` and legacy `VlocityOpenInterface` / `VlocityOpenInterface2` scenarios
+
 ### Salesforce Industries Documentation Team
 **[Callable Implementations](https://help.salesforce.com/s/articleView?id=ind.v_dev_t_callable_implementations_651821.htm&type=5)**
 
