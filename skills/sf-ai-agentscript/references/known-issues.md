@@ -355,8 +355,9 @@
 - **Affects**: `sf agent publish authoring-bundle`
 - **Symptom**: Publish fails with generic HTTP 500 error (no detailed message). Occurs when `default_agent_user` is included in the config block for an `AgentforceEmployeeAgent`, or when `default_agent_user` references a non-existent user for a Service Agent.
 - **Root Cause**: The Einstein Platform tries to resolve the `default_agent_user` reference during publish. For Employee Agents, this field is invalid entirely. For Service Agents, if the user doesn't exist or lacks the Einstein Agent User profile, the API returns 500 instead of a descriptive error.
-- **Workaround**: For Employee Agents, remove `default_agent_user` entirely and set `agent_type: "AgentforceEmployeeAgent"`. For Service Agents, verify the user exists: `SELECT Username FROM User WHERE Profile.Name = 'Einstein Agent User' AND IsActive = true`
-- **Open Questions**: Will the API return a descriptive error instead of 500?
+- **Workaround**: For Employee Agents, remove `default_agent_user` entirely and set `agent_type: "AgentforceEmployeeAgent"`. For Service Agents, verify the user exists and is truly valid for publish: active, not `AutomatedProcess`, and `Profile.Name = 'Einstein Agent User'`.
+- **Extra diagnostic**: If `sf agent publish authoring-bundle --json` still fails after validate/preview pass, retry with `--skip-retrieve`. If `--skip-retrieve` succeeds, the failure was in the CLI retrieve/deploy-back phase rather than in the publish itself.
+- **Open Questions**: Will the API return a descriptive error instead of 500? Will the CLI expose retrieve-phase failures separately from publish failures?
 
 ---
 
@@ -563,7 +564,7 @@
 - **Affects**: Action outputs on prompt template actions (`prompt://` / `generatePromptResponse://` targets)
 - **Symptom**: Setting `is_displayable: True` (or toggling "Show in conversation" in the UI) on a prompt template action's output causes the agent to return a blank or empty response. The prompt template executes correctly (visible in trace), but the response text is not surfaced to the user.
 - **Root Cause**: When `is_displayable: True`, the platform attempts to render the raw prompt template output directly instead of letting the reasoner synthesize it. The rendering pipeline does not handle prompt template output format correctly, resulting in blank display.
-- **Workaround**: Set `is_displayable: False` (or `filter_from_agent: True`) on prompt template outputs and let the reasoner synthesize the output into its response naturally.
+- **Workaround**: Set `is_displayable: False` on prompt template outputs and let the reasoner synthesize the output into its response naturally. If the output should influence the reply or routing, also set `is_used_by_planner: True` on that field.
   ```yaml
   # ❌ WRONG — causes blank response
   outputs:
@@ -683,6 +684,20 @@
 
 ---
 
+<a id="issue-40"></a>
+
+### Issue 40: Draft prompt template causes misleading publish errors for `generatePromptResponse://` actions
+- **Status**: WORKAROUND
+- **Date Discovered**: 2026-03-17
+- **Affects**: `sf agent publish authoring-bundle` with `generatePromptResponse://` action targets
+- **Symptom**: Publish fails with `invalid input parameters found: 'Input:query'` or `invalid output parameters found: 'promptResponse'` — implying the I/O names are wrong. Removing I/O blocks produces `Metadata API request failed: Metadata retrieval failed:` or `Internal Error, try again later`. `sf agent validate authoring-bundle` passes in all cases.
+- **Root Cause**: The target prompt template is in **Draft** status. The platform cannot resolve the `generatePromptResponse://` target, but reports the failure as invalid I/O parameters or generic internal errors rather than indicating the template status.
+- **Workaround**: Activate the prompt template in **Setup > Prompt Builder** before publishing. The original Agent Script syntax (with `"Input:X"` inputs and `promptResponse` output) publishes successfully once the template is Active. Pre-publish check: retrieve the template XML and verify `<status>Published</status>` or `<status>Active</status>`.
+- **Open Questions**: Will Salesforce improve the error message to mention template status? Will `sf agent validate` add a target resolution check?
+- **References**: [action-prompt-templates.md](action-prompt-templates.md#draft-template-publish-errors) — "Draft Template Publish Errors" section
+
+---
+
 ## Resolved Issues
 
 <a id="issue-16"></a>
@@ -699,6 +714,89 @@
 - **All-or-nothing rule**: When `outbound_route_type` is present, all three route properties are required.
 - **Note**: `outboundRouteName` in compiled XML does NOT need the `flow://` prefix — the publisher strips it during compilation. Both forms work in production XML.
 - **Validated on**: Production org, 2026-02-16
+
+<a id="issue-40-filter-planner-conflict"></a>
+
+### Issue 40: `filter_from_agent` + `is_used_by_planner` on same output — `InvalidFormatError` with cascade
+
+- **Status**: WORKAROUND
+- **Severity**: High (Blocking)
+- **Discovered**: 2026-03-17
+- **Affects**: All Agent Script action output field declarations
+- **Symptom**: Output fields that declare both `filter_from_agent` and `is_used_by_planner` produce `InvalidFormatError` with the message: _"Remove the 'is_used_by_planner' field and use only 'filter_from_agent'."_ More critically, this **invalidates the entire action definition**, causing cascading `ACTION_NOT_IN_SCOPE` errors everywhere the action is referenced — in `before_reasoning:` `run @actions.X` calls and `reasoning.actions:` invocations. The cascade makes the root cause very hard to diagnose because the error appears on action _references_, not on the offending output field.
+- **Root Cause**: `filter_from_agent` and `is_used_by_planner` are mutually exclusive output visibility controls. When both are present, the Agent Script parser rejects the output field, which poisons the entire action definition and makes it invisible to all scopes.
+- **Cascade Pattern**: One invalid output field on a shared action (e.g., `update_session` reused across topics) can trigger `ACTION_NOT_IN_SCOPE` errors in every topic that references it — often 4-6+ errors from a single root cause.
+- **Workaround**: Use only `filter_from_agent: True` on outputs that should be hidden from the customer. Remove `is_used_by_planner` from those fields entirely. The planner can still reason about the output via `set @variables.X = @outputs.Y` bindings in reasoning actions.
+- **Example**:
+  ```yaml
+  # ❌ WRONG — causes InvalidFormatError + cascade
+  outputs:
+     caseId: string
+        filter_from_agent: True
+        is_used_by_planner: False
+
+  # ✅ CORRECT — filter_from_agent alone
+  outputs:
+     caseId: string
+        filter_from_agent: True
+  ```
+- **Validator Rule**: `ASV-RUN-020` (Blocking)
+- **Real-world impact**: Observed in a production agent — 6 output fields across 5 topics caused 4 cascading `ACTION_NOT_IN_SCOPE` errors that blocked publish.
+- **Validated on**: Production sandbox, 2026-03-17
+
+### Issue 41: Lifecycle arithmetic on mutable number crashes when variable is `None` at runtime
+
+- **Status**: WORKAROUND
+- **Severity**: High (Silent crash)
+- **Discovered**: 2026-03-17
+- **Affects**: `before_reasoning` / `after_reasoning` blocks with arithmetic on mutable number variables
+- **Symptom**: Agent crashes silently with "unexpected error" when a `before_reasoning` block does `set @variables.counter = @variables.counter + 1` and the variable is `None` at runtime. The crash is `None + 1` — a type error in the expression evaluator. No useful error message is surfaced to the user or logs.
+- **Root Cause**: Mutable number variables declared with `= 0` defaults can arrive as `None` at runtime. Known triggers: (1) Eval API / Testing Center state injection that omits the variable, (2) platform variable initialization bugs where defaults are not applied before the first `before_reasoning` execution.
+- **Cascade Pattern**: Common in guardrail topics where a strike counter is incremented on every entry. All guardrail topics (e.g., `inappropriate_content`, `prompt_injection`, `reverse_engineering`) crash simultaneously since they share the same counter pattern.
+- **Workaround**: Add a null guard before any arithmetic in lifecycle hooks:
+  ```yaml
+  # ❌ CRASHES when guardrail_strikes is None
+  before_reasoning:
+     set @variables.guardrail_strikes = @variables.guardrail_strikes + 1
+     if @variables.guardrail_strikes >= 3:
+        transition to @topic.escalation
+
+  # ✅ SAFE — null guard prevents None + 1
+  before_reasoning:
+     if @variables.guardrail_strikes is None:
+        set @variables.guardrail_strikes = 0
+     set @variables.guardrail_strikes = @variables.guardrail_strikes + 1
+     if @variables.guardrail_strikes >= 3:
+        transition to @topic.escalation
+  ```
+- **Validator Rule**: `ASV-RUN-021` (Warning)
+- **Validated on**: Production sandbox, 2026-03-17
+
+### Issue 42: Raw `@system_variables.user_input` substring matching is brittle for deterministic routing
+
+- **Status**: WORKAROUND
+- **Date Discovered**: 2026-03-20
+- **Affects**: Deterministic branching that uses `contains`, `startswith`, or `endswith` directly on `@system_variables.user_input`
+- **Symptom**: Rules such as `if @system_variables.user_input contains "never mind":` appear simple, but cancellation/revision detection behaves inconsistently across real user phrasing. The branch may miss intent variants or fail to trigger when punctuation, casing, or phrasing changes.
+- **Root Cause**: `@system_variables.user_input` is raw last-utterance text, not a normalized intent signal. Direct substring checks are too weak for control-flow-critical intent detection.
+- **Workaround**: Normalize the utterance first via Flow, Apex, or a classifier action, then branch on an explicit boolean or enum.
+  ```yaml
+  # ❌ BRITTLE — raw text matching
+  if @system_variables.user_input contains "never mind":
+     transition to @topic.cancel_request
+
+  # ✅ SAFER — normalize first
+  run @actions.classify_user_intent
+     with utterance = @system_variables.user_input
+     set @variables.cancel_requested = @outputs.cancel_requested
+
+  if @variables.cancel_requested == True:
+     transition to @topic.cancel_request
+  ```
+- **Validator Rule**: `ASV-RUN-023` (Warning)
+- **Open Questions**:
+  - Will future runtime layers provide stronger deterministic utterance-matching semantics?
+  - Will direct raw-text guards become portable enough to recommend for intent routing?
 
 ---
 
@@ -720,4 +818,4 @@ When an issue is resolved:
 
 ---
 
-*Last updated: 2026-03-12 (v2.7.0)*
+*Last updated: 2026-03-20 (v2.9.0)*

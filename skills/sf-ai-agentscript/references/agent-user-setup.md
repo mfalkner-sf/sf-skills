@@ -265,6 +265,32 @@ config:
   default_agent_user: "{agent_name}_agent@{orgId}.ext"  # Service agents ONLY
 ```
 
+**Before publishing, verify the actual user object** — not just the username string:
+
+```bash
+sf data query --query "
+SELECT Username, IsActive, UserType, Profile.Name
+FROM User
+WHERE Username = '{agent_name}_agent@{orgId}.ext'
+LIMIT 1
+" -o TARGET_ORG --json
+```
+
+A valid Service Agent user must satisfy all of these:
+- user exists
+- `IsActive = true`
+- `UserType != AutomatedProcess`
+- `Profile.Name = 'Einstein Agent User'`
+
+This catches cases where `sf agent validate` passes but `sf agent publish` later fails because the configured user is missing, inactive, `AutomatedProcess`, or not on the **Einstein Agent User** profile.
+
+**Recommended native sequence:**
+1. `sf agent validate authoring-bundle --api-name <AgentName> -o TARGET_ORG --json`
+2. Run the exact `sf data query` above for `default_agent_user`
+3. Smoke-test with `sf agent preview start` / `send` / `end`
+4. Publish with `sf agent publish authoring-bundle`
+5. If publish fails after validate + preview pass, retry with `--skip-retrieve`
+
 ---
 
 ### Step 6: Deploy, Test, Publish & Activate
@@ -304,12 +330,20 @@ If testing reveals problems, edit your agent script or Apex classes, redeploy, a
 **Only publish after all tests pass.**
 
 ```bash
+# First try the standard publish path
 sf agent publish authoring-bundle \
   --api-name <AgentName> \
   -o TARGET_ORG --json
+
+# If that fails after validate/preview pass, retry without retrieve-back
+sf agent publish authoring-bundle \
+  --api-name <AgentName> \
+  -o TARGET_ORG --skip-retrieve --json
 ```
 
 > **Publishing does NOT activate.** The new BotVersion is created as `Inactive`. You must explicitly activate.
+>
+> **Why `--skip-retrieve` matters**: In org-backed testing, some publishes succeeded in the org but the CLI failed in the retrieve/deploy-back phase. `--skip-retrieve` isolates that tooling issue.
 
 #### 6.4: Activate Agent
 

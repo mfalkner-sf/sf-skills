@@ -120,6 +120,9 @@ sf agent validate authoring-bundle --api-name ProntoRefund -o TARGET_ORG --json
 # Publish agent to org (4-step process: Validate → Publish → Retrieve → Deploy)
 sf agent publish authoring-bundle --api-name ProntoRefund -o TARGET_ORG --json
 
+# If publish fails AFTER validate/preview pass, retry without retrieve-back:
+sf agent publish authoring-bundle --api-name ProntoRefund -o TARGET_ORG --skip-retrieve --json
+
 # Expected output:
 # ✔ Validate Bundle    ~1-2s
 # ✔ Publish Agent      ~8-10s
@@ -128,6 +131,10 @@ sf agent publish authoring-bundle --api-name ProntoRefund -o TARGET_ORG --json
 ```
 
 > ⚠️ Do NOT use `sf project deploy start` - it will fail with "Required fields are missing: [BundleType]"
+>
+> ⚠️ **Real-world failure split**:
+> - If plain publish fails but `--skip-retrieve` succeeds, the problem is usually the CLI retrieve/deploy-back phase, not Agent Script compilation.
+> - If publish still fails even with `--skip-retrieve`, suspect `default_agent_user` first.
 
 ### Step 5: Activate
 
@@ -164,11 +171,12 @@ sf agent validate authoring-bundle --api-name MyAgent -o TARGET_ORG --json
 sf agent test run --api-name MyTestDef --wait 10 -o TARGET_ORG --json
 ```
 
-### Common Validation Errors
+### Common Validation / Publish Errors
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `Internal Error, try again later` | Invalid `default_agent_user` | Query for Einstein Agent Users |
+| `Internal Error, try again later` during **publish** | Often invalid `default_agent_user` for Service Agent | Verify the user exists, is active, is NOT `AutomatedProcess`, and has Profile.Name = `Einstein Agent User` |
+| Plain publish fails, `--skip-retrieve` succeeds | CLI retrieve/deploy-back phase failed after successful publish | Re-run `sf agent publish authoring-bundle ... --skip-retrieve --json` |
 | `SyntaxError: You cannot mix spaces and tabs` | Mixed indentation | Use consistent spacing |
 | `Transition to undefined topic "@topic.X"` | Typo in topic name | Check spelling |
 | `Variables cannot be both mutable AND linked` | Conflicting modifiers | Choose one modifier |
@@ -184,6 +192,57 @@ sf agent test run --api-name MyTestDef --wait 10 -o TARGET_ORG --json
 ```bash
 sf data query --query "SELECT Id, Username, IsActive FROM User WHERE Profile.Name = 'Einstein Agent User' AND IsActive = true" -o TARGET_ORG --json
 ```
+
+### Native Pre-Publish Check (Recommended)
+
+```bash
+sf data query --query "
+SELECT Username, IsActive, UserType, Profile.Name
+FROM User
+WHERE Username = 'prontorefund_agent@00Dxxxx.ext'
+LIMIT 1
+" -o TARGET_ORG --json
+```
+
+Use this native CLI check before publish for Service Agents. A passing result must show:
+- a matching user record
+- `IsActive = true`
+- `UserType != AutomatedProcess`
+- `Profile.Name = 'Einstein Agent User'`
+
+This covers the most common real-world publish failure: a `default_agent_user` value that passes `sf agent validate` but fails `sf agent publish` because the user is missing, inactive, `AutomatedProcess`, or not on the **Einstein Agent User** profile.
+
+### Native Pre-Publish Workflow
+
+Use this exact sequence for production-safe Service Agent publishes:
+
+```bash
+# 1. Static validation
+sf agent validate authoring-bundle --api-name MyAgent -o TARGET_ORG --json
+
+# 2. Verify the exact default_agent_user from the .agent config
+sf data query --query "
+SELECT Username, IsActive, UserType, Profile.Name
+FROM User
+WHERE Username = 'myagent_agent@00Dxxxx.ext'
+LIMIT 1
+" -o TARGET_ORG --json
+
+# 3. Smoke-test the authoring bundle
+SESSION_ID=$(sf agent preview start --authoring-bundle MyAgent -o TARGET_ORG --json | jq -r '.result.sessionId')
+sf agent preview send --session-id "$SESSION_ID" --authoring-bundle MyAgent --utterance "hello" --json
+sf agent preview end --session-id "$SESSION_ID" --json
+
+# 4. Publish
+sf agent publish authoring-bundle --api-name MyAgent -o TARGET_ORG --json
+
+# 5. If plain publish fails after validate + preview pass, retry:
+sf agent publish authoring-bundle --api-name MyAgent -o TARGET_ORG --skip-retrieve --json
+```
+
+Interpretation:
+- Plain publish fails, `--skip-retrieve` works → retrieve/deploy-back phase issue in the CLI path
+- Both publish commands fail → inspect `default_agent_user`, action I/O, and other server-side publish constraints
 
 ### Create Einstein Agent User
 

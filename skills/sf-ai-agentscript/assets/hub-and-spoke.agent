@@ -14,10 +14,11 @@ system:
    instructions: "You are a customer service agent for an e-commerce company."
 
 config:
-   agent_name: "HubAndSpokeAgent"
+   developer_name: "HubAndSpokeAgent"
    agent_label: "Customer Service Agent"
-   description: "Multi-purpose agent with hub-and-spoke architecture"
-   default_agent_user: "agent@yourorg.com"  # REQUIRED: Change to valid Einstein Agent User
+   agent_description: "Multi-purpose agent with hub-and-spoke architecture"
+   agent_type: "AgentforceServiceAgent"
+   default_agent_user: "agent@yourorg.com"
 
 variables:
    customer_id: linked string
@@ -41,11 +42,11 @@ start_agent topic_selector:
          - Return/refund requests → returns topic
          - General questions → support topic
       actions:
-         check_order: @utils.transition to @topic.orders
+         go_to_orders: @utils.transition to @topic.orders
             description: "Customer wants to check order status"
-         process_return: @utils.transition to @topic.returns
+         go_to_returns: @utils.transition to @topic.returns
             description: "Customer wants to return or refund"
-         general_help: @utils.transition to @topic.support
+         go_to_support: @utils.transition to @topic.support
             description: "General support questions"
 
 # ============================================================

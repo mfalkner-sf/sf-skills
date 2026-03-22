@@ -8,355 +8,237 @@ description: >
   (use sf-testing), or metadata deployment (use sf-deploy).
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   author: "Jag Valaiyapathy"
   scoring: "130 points across 7 categories"
 ---
 
 # Salesforce Data Operations Expert (sf-data)
 
-You are an expert Salesforce data operations specialist with deep knowledge of SOQL, DML operations, Bulk API 2.0, test data generation patterns, and governor limits. You help developers query, insert, update, and delete records efficiently while following Salesforce best practices.
+Use this skill when the user needs **Salesforce data work**: record CRUD, bulk import/export, test data generation, cleanup scripts, or data factory patterns for validating Apex, Flow, or integration behavior.
 
-## Executive Overview
+## When This Skill Owns the Task
 
-The sf-data skill provides comprehensive data management capabilities:
-- **CRUD Operations**: Query, insert, update, delete, upsert records
-- **SOQL Expertise**: Complex relationships, aggregates, polymorphic queries
-- **Test Data Generation**: Factory patterns for standard and custom objects
-- **Bulk Operations**: Bulk API 2.0 for large datasets (10,000+ records)
-- **Record Tracking**: Track created records with cleanup/rollback commands
-- **Integration**: Works with sf-metadata, sf-apex, sf-flow
+Use `sf-data` when the work involves:
+- `sf data` CLI commands
+- record creation, update, delete, upsert, export, or tree import/export
+- realistic test data generation
+- bulk data operations and cleanup
+- Apex anonymous scripts for data seeding / rollback
 
----
-
-## 🔄 Operation Modes
-
-| Mode | Org Required? | Output | Use When |
-|------|---------------|--------|----------|
-| **Script Generation** | ❌ No | Local `.apex` files | Reusable scripts, no org yet |
-| **Remote Execution** | ✅ Yes | Records in org | Immediate testing, verification |
-
-⚠️ Always confirm which mode the user expects before proceeding!
+Delegate elsewhere when the user is:
+- writing SOQL only → [sf-soql](../sf-soql/SKILL.md)
+- running or repairing Apex tests → [sf-testing](../sf-testing/SKILL.md)
+- deploying metadata first → [sf-deploy](../sf-deploy/SKILL.md)
+- discovering schema / field definitions → [sf-metadata](../sf-metadata/SKILL.md)
 
 ---
 
-## Core Responsibilities
+## Important Mode Decision
 
-1. **Execute SOQL/SOSL Queries** - Write and execute queries with relationship traversal, aggregates, and filters
-2. **Perform DML Operations** - Insert, update, delete, upsert records via sf CLI
-3. **Generate Test Data** - Create realistic test data using factory patterns for trigger/flow testing
-4. **Handle Bulk Operations** - Use Bulk API 2.0 for large-scale data operations
-5. **Track & Cleanup Records** - Maintain record IDs and provide cleanup commands
-6. **Integrate with Other Skills** - Query sf-metadata for object discovery, serve sf-apex/sf-flow for testing
+Confirm which mode the user wants:
 
----
+| Mode | Use when |
+|---|---|
+| Script generation | they want reusable `.apex`, CSV, or JSON assets without touching an org yet |
+| Remote execution | they want records created / changed in a real org now |
 
-## ⚠️ CRITICAL: Orchestration Order
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  sf-metadata → sf-flow → sf-deploy → sf-data                               │
-│                                         ▲                                   │
-│                                    YOU ARE HERE (LAST!)                     │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-**sf-data operates on REMOTE org data.** Objects/fields must be deployed before sf-data can create records.
-
-| Error | Meaning | Fix |
-|-------|---------|-----|
-| `SObject type 'X' not supported` | Object not deployed | Run sf-deploy BEFORE sf-data |
-| `INVALID_FIELD: No such column 'Field__c'` | Field not deployed OR FLS issue | Deploy field + Permission Set |
-| `REQUIRED_FIELD_MISSING` | Validation rule requires field | Include all required fields |
-
-See `references/orchestration.md` for the 251-record pattern and cleanup sequences.
+Do not assume remote execution if the user may only want scripts.
 
 ---
 
-## 🔑 Key Insights
+## Required Context to Gather First
 
-| Insight | Why | Action |
-|---------|-----|--------|
-| **Test with 251 records** | Crosses 200-record batch boundary | Always bulk test with 251+ |
-| **FLS blocks access** | "Field does not exist" often = FLS not missing field | Create Permission Set |
-| **Cleanup scripts** | Test isolation | `DELETE [SELECT Id FROM X WHERE Name LIKE 'Test%']` |
-| **Queue prerequisites** | sf-data can't create Queues | Use sf-metadata for Queue XML first |
-
----
-
-## Workflow (5-Phase)
-
-**Phase 1: Gather** → Ask the user (operation type, object, org alias, record count) | Check existing: `Glob: **/*factory*.apex`
-
-**Phase 2: Template** → Select from `assets/` folder (factories/, bulk/, soql/, cleanup/)
-- Installed skill: `~/.claude/skills/sf-data/assets/`
-- Project: `[project-root]/skills/sf-data/assets/`
-
-**Phase 3: Execute** → Run sf CLI command | Capture JSON output | Track record IDs
-
-**Phase 4: Verify** → Query to confirm | Check counts | Verify relationships
-
-**Phase 5: Cleanup** → Generate cleanup commands | Document IDs | Provide rollback scripts
+Ask for or infer:
+- target object(s)
+- org alias, if remote execution is required
+- operation type: query, create, update, delete, upsert, import, export, cleanup
+- expected volume
+- whether this is test data, migration data, or one-off troubleshooting data
+- any parent-child relationships that must exist first
 
 ---
 
-## sf CLI v2 Data Commands Reference
+## Core Operating Rules
 
-**All commands require**: `--target-org <alias>` | Optional: `--json` for parsing
+- `sf-data` acts on **remote org data** unless the user explicitly wants local script generation.
+- Objects and fields must already exist before data creation.
+- For automation testing, prefer **251+ records** when bulk behavior matters.
+- Always think about cleanup before creating large or noisy datasets.
+- Never use real PII in generated test data.
+- Prefer **CLI-first** for straightforward CRUD; use anonymous Apex when the operation truly needs server-side orchestration.
 
-| Category | Command | Purpose | Key Options |
-|----------|---------|---------|-------------|
-| **Query** | `sf data query` | Execute SOQL | `--query "SELECT..."` |
-| | `sf data search` | Execute SOSL | `--query "FIND {...}"` |
-| | `sf data export bulk` | Export >10k records | `--output-file file.csv` |
-| **Single** | `sf data get record` | Get by ID | `--sobject X --record-id Y` |
-| | `sf data create record` | Insert | `--values "Name='X'"` |
-| | `sf data update record` | Update | `--record-id Y --values "..."` |
-| | `sf data delete record` | Delete | `--record-id Y` |
-| **Bulk** | `sf data import bulk` | CSV insert | `--file X.csv --sobject Y --wait 10` |
-| | `sf data update bulk` | CSV update | `--file X.csv --sobject Y` |
-| | `sf data delete bulk` | CSV delete | `--file X.csv --sobject Y` |
-| | `sf data upsert bulk` | CSV upsert | `--external-id Field__c` |
-| **Tree** | `sf data export tree` | Parent-child export | `--query "SELECT...(SELECT...)"` |
-| | `sf data import tree` | Parent-child import | `--files data.json` |
-| **Apex** | `sf apex run` | Anonymous Apex | `--file script.apex` or interactive |
-
-**Useful flags**: `--result-format csv`, `--use-tooling-api`, `--all-rows` (include deleted)
+If metadata is missing, stop and hand off to:
+- [sf-metadata](../sf-metadata/SKILL.md) or [sf-deploy](../sf-deploy/SKILL.md)
 
 ---
 
-## SOQL Relationship Patterns
+## Recommended Workflow
 
-| Pattern | Syntax | Use When |
-|---------|--------|----------|
-| **Parent-to-Child** | `(SELECT ... FROM ChildRelationship)` | Need child details from parent |
-| **Child-to-Parent** | `Parent.Field` (up to 5 levels) | Need parent fields from child |
-| **Polymorphic** | `TYPEOF What WHEN Account THEN ...` | Who/What fields (Task, Event) |
-| **Self-Referential** | `Parent.Parent.Name` | Hierarchical data |
-| **Aggregate** | `COUNT(), SUM(), AVG()` + `GROUP BY` | Statistics (not in Bulk API) |
-| **Semi-Join** | `WHERE Id IN (SELECT ParentId FROM ...)` | Records WITH related |
-| **Anti-Join** | `WHERE Id NOT IN (SELECT ...)` | Records WITHOUT related |
+### 1. Verify prerequisites
+Confirm object / field availability, org auth, and required parent records.
 
-See `assets/soql/` folder for complete examples (use marketplace or project path).
+### 2. Run describe-first pre-flight validation when schema is uncertain
+Before creating or updating records, use object describe data to validate:
+- required fields
+- createable vs non-createable fields
+- picklist values
+- relationship fields and parent requirements
 
----
-
-## Best Practices (Built-In Enforcement)
-
-### Validation Scoring (130 Points)
-
-| Category | Points | Key Focus |
-|----------|--------|-----------|
-| Query Efficiency | 25 | Selective filters, no N+1, LIMIT clauses |
-| Bulk Safety | 25 | Batch sizing, no DML/SOQL in loops |
-| Data Integrity | 20 | Required fields, valid relationships |
-| Security & FLS | 20 | WITH USER_MODE, no PII patterns |
-| Test Patterns | 15 | 200+ records, edge cases |
-| Cleanup & Isolation | 15 | Rollback, cleanup scripts |
-| Documentation | 10 | Purpose, outcomes documented |
-
-**Thresholds**: ⭐⭐⭐⭐⭐ 117+ | ⭐⭐⭐⭐ 104-116 | ⭐⭐⭐ 91-103 | ⭐⭐ 78-90 | ⭐ <78 (blocked)
-
----
-
-## Test Data Factory Pattern
-
-### Naming Convention
-```
-TestDataFactory_[ObjectName]
+Example pattern:
+```bash
+sf sobject describe --sobject ObjectName --target-org <alias> --json
 ```
 
-### Standard Methods
+Helpful filters:
+```bash
+# Required + createable fields
+jq '.result.fields[] | select(.nillable==false and .createable==true) | {name, type}'
 
-```apex
-public class TestDataFactory_Account {
+# Valid picklist values for one field
+jq '.result.fields[] | select(.name=="StageName") | .picklistValues[].value'
 
-    // Create and insert records
-    public static List<Account> create(Integer count) {
-        return create(count, true);
-    }
-
-    // Create with insert option
-    public static List<Account> create(Integer count, Boolean doInsert) {
-        List<Account> records = new List<Account>();
-        for (Integer i = 0; i < count; i++) {
-            records.add(buildRecord(i));
-        }
-        if (doInsert) {
-            insert records;
-        }
-        return records;
-    }
-
-    // Create for specific parent
-    public static List<Contact> createForAccount(Integer count, Id accountId) {
-        // Child record creation with parent relationship
-    }
-
-    private static Account buildRecord(Integer index) {
-        return new Account(
-            Name = 'Test Account ' + index,
-            Industry = 'Technology',
-            Type = 'Prospect'
-        );
-    }
-}
+# Fields that cannot be set on create
+jq '.result.fields[] | select(.createable==false) | .name'
 ```
 
-### Key Principles
+### 3. Choose the smallest correct mechanism
+| Need | Default approach |
+|---|---|
+| small one-off CRUD | `sf data` single-record commands |
+| large import/export | Bulk API 2.0 via `sf data ... bulk` |
+| parent-child seed set | tree import/export |
+| reusable test dataset | factory / anonymous Apex script |
+| reversible experiment | cleanup script or savepoint-based approach |
 
-1. **Always create in lists** - Support bulk operations
-2. **Provide doInsert parameter** - Allow caller to control insertion
-3. **Use realistic data** - Industry values, proper naming
-4. **Support relationships** - Parent ID parameters for child records
-5. **Include edge cases** - Null values, special characters, boundaries
+### 4. Execute or generate assets
+Use the built-in templates under `assets/` when they fit:
+- `assets/factories/`
+- `assets/bulk/`
+- `assets/cleanup/`
+- `assets/soql/`
+- `assets/csv/`
+- `assets/json/`
+
+### 5. Verify results
+Check counts, relationships, and record IDs after creation or update.
+
+### 6. Apply a bounded retry strategy
+If creation fails:
+1. try the primary CLI shape once
+2. retry once with corrected parameters
+3. re-run describe / validate assumptions
+4. pivot to a different mechanism or provide a manual workaround
+
+Do **not** repeat the same failing command indefinitely.
+
+### 7. Leave cleanup guidance
+Provide exact cleanup commands or rollback assets whenever data was created.
 
 ---
 
-## Extending Factories for Custom Fields
+## High-Signal Rules
 
-**Pattern for profile-based test data** (Hot/Warm/Cold scoring):
+### Bulk safety
+- use bulk operations for large volumes
+- test automation-sensitive behavior with 251+ records where appropriate
+- avoid one-record-at-a-time patterns for bulk scenarios
 
-```apex
-public class TestDataFactory_Lead_Extended {
-    public static List<Lead> createWithProfile(String profile, Integer count) {
-        List<Lead> leads = new List<Lead>();
-        for (Integer i = 0; i < count; i++) {
-            Lead l = new Lead(FirstName='Test', LastName='Lead'+i, Company='Test Co '+i, Status='Open');
-            switch on profile {
-                when 'Hot'  { l.Industry = 'Technology'; l.NumberOfEmployees = 1500; l.Email = 'hot'+i+'@test.com'; }
-                when 'Warm' { l.Industry = 'Technology'; l.NumberOfEmployees = 500; l.Email = 'warm'+i+'@test.com'; }
-                when 'Cold' { l.Industry = 'Retail'; l.NumberOfEmployees = 50; }
-            }
-            leads.add(l);
-        }
-        return leads;
-    }
+### Data integrity
+- include required fields
+- validate picklist values before creation
+- verify parent IDs and relationship integrity
+- account for validation rules and duplicate constraints
+- exclude non-createable fields from input payloads
 
-    // Bulk distribution: createWithDistribution(50, 100, 101) → 251 leads crossing batch boundary
-    public static List<Lead> createWithDistribution(Integer hot, Integer warm, Integer cold) {
-        List<Lead> all = new List<Lead>();
-        all.addAll(createWithProfile('Hot', hot));
-        all.addAll(createWithProfile('Warm', warm));
-        all.addAll(createWithProfile('Cold', cold));
-        return all;
-    }
-}
-```
-
-**Generic pattern with field overrides**: Use `record.put(fieldName, value)` in loop for dynamic fields.
+### Cleanup discipline
+Prefer one of:
+- delete-by-ID
+- delete-by-pattern
+- delete-by-created-date window
+- rollback / savepoint patterns for script-based test runs
 
 ---
 
-## Record Tracking & Cleanup
+## Common Failure Patterns
 
-| Method | Code | Best For |
-|--------|------|----------|
-| By IDs | `DELETE [SELECT Id FROM X WHERE Id IN :ids]` | Known records |
-| By Pattern | `DELETE [SELECT Id FROM X WHERE Name LIKE 'Test%']` | Test data |
-| By Date | `WHERE CreatedDate >= :startTime AND Name LIKE 'Test%'` | Recent test data |
-| Savepoint | `Database.setSavepoint()` / `Database.rollback(sp)` | Test isolation |
-| CLI Bulk | `sf data delete bulk --file ids.csv` | Large cleanup |
+| Error | Likely cause | Default fix direction |
+|---|---|---|
+| `INVALID_FIELD` | wrong field API name or FLS issue | verify schema and access |
+| `REQUIRED_FIELD_MISSING` | mandatory field omitted | include required values from describe data |
+| `INVALID_CROSS_REFERENCE_KEY` | bad parent ID | create / verify parent first |
+| `FIELD_CUSTOM_VALIDATION_EXCEPTION` | validation rule blocked the record | use valid test data or adjust setup |
+| invalid picklist value | guessed value instead of describe-backed value | inspect picklist values first |
+| non-writeable field error | field is not createable / updateable | remove it from the payload |
+| bulk limits / timeouts | wrong tool for the volume | switch to bulk / staged import |
+
+---
+
+## Output Format
+
+When finishing, report in this order:
+1. **Operation performed**
+2. **Objects and counts**
+3. **Target org or local artifact path**
+4. **Record IDs / output files**
+5. **Verification result**
+6. **Cleanup instructions**
+
+Suggested shape:
+
+```text
+Data operation: <create / update / delete / export / seed>
+Objects: <object + counts>
+Target: <org alias or local path>
+Artifacts: <record ids / csv / apex / json files>
+Verification: <passed / partial / failed>
+Cleanup: <exact delete or rollback guidance>
+```
 
 ---
 
 ## Cross-Skill Integration
 
-| From Skill | To sf-data | When |
-|------------|------------|------|
-| sf-apex | → sf-data | "Create 251 Accounts for bulk testing" |
-| sf-flow | → sf-data | "Create Opportunities with StageName='Closed Won'" |
-| sf-testing | → sf-data | "Generate test records for test class" |
-
-| From sf-data | To Skill | When |
-|--------------|----------|------|
-| sf-data | → sf-metadata | "Describe Invoice__c" (discover object structure) |
-| sf-data | → sf-deploy | "Redeploy field after adding validation rule" |
+| Need | Delegate to | Reason |
+|---|---|---|
+| discover object / field structure | [sf-metadata](../sf-metadata/SKILL.md) | accurate schema grounding |
+| run bulk-sensitive Apex validation | [sf-testing](../sf-testing/SKILL.md) | test execution and coverage |
+| deploy missing schema first | [sf-deploy](../sf-deploy/SKILL.md) | metadata readiness |
+| implement production logic consuming the data | [sf-apex](../sf-apex/SKILL.md) or [sf-flow](../sf-flow/SKILL.md) | behavior implementation |
 
 ---
 
-## Common Error Patterns
+## Reference Map
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| `INVALID_FIELD` | Field doesn't exist | Use sf-metadata to verify field API names |
-| `MALFORMED_QUERY` | Invalid SOQL syntax | Check relationship names, field types |
-| `FIELD_CUSTOM_VALIDATION_EXCEPTION` | Validation rule triggered | Use valid data or bypass permission |
-| `DUPLICATE_VALUE` | Unique field constraint | Query existing records first |
-| `REQUIRED_FIELD_MISSING` | Required field not set | Include all required fields |
-| `INVALID_CROSS_REFERENCE_KEY` | Invalid relationship ID | Verify parent record exists |
-| `ENTITY_IS_DELETED` | Record soft-deleted | Use --all-rows or query active records |
-| `TOO_MANY_SOQL_QUERIES` | 100 query limit | Batch queries, use relationships |
-| `TOO_MANY_DML_STATEMENTS` | 150 DML limit | Batch DML, use lists |
+### Start here
+- [references/sf-cli-data-commands.md](references/sf-cli-data-commands.md)
+- [references/test-data-best-practices.md](references/test-data-best-practices.md)
+- [references/orchestration.md](references/orchestration.md)
+- [references/test-data-patterns.md](references/test-data-patterns.md)
+- [references/test-data-factory-usage.md](references/test-data-factory-usage.md)
 
----
+### Query / bulk / cleanup
+- [references/soql-relationship-guide.md](references/soql-relationship-guide.md)
+- [references/relationship-query-examples.md](references/relationship-query-examples.md)
+- [references/bulk-operations-guide.md](references/bulk-operations-guide.md)
+- [references/cleanup-rollback-guide.md](references/cleanup-rollback-guide.md)
+- [references/cleanup-rollback-example.md](references/cleanup-rollback-example.md)
 
-## Governor Limits
-
-See [Salesforce Governor Limits](https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_apexgov.htm) for current limits.
-
-**Key limits**: SOQL 100/200 (sync/async) | DML 150 | Rows 10K | Bulk API 10M records/day
-
----
-
-## Reference & Templates
-
-**Docs**: `references/` folder (in sf-data) - soql-relationship-guide, bulk-operations-guide, test-data-patterns, cleanup-rollback-guide
-
-**Templates**: `assets/factories/` (Account, Contact, Opportunity, hierarchy) | `assets/soql/` (parent-child, polymorphic) | `assets/bulk/` | `assets/cleanup/`
-- **Path**: `~/.claude/skills/sf-data/assets/[subfolder]/`
+### Examples / limits
+- [references/crud-workflow-example.md](references/crud-workflow-example.md)
+- [references/bulk-testing-example.md](references/bulk-testing-example.md)
+- [references/anonymous-apex-guide.md](references/anonymous-apex-guide.md)
+- [references/governor-limits-reference.md](references/governor-limits-reference.md)
+- [assets/](assets/)
 
 ---
 
-## Dependencies
+## Score Guide
 
-- **sf-metadata** (optional): Query object/field structure before operations
-  - Install: `npx skills add Jaganpro/sf-skills --skill sf-metadata`
-- **sf CLI v2** (required): All data operations use sf CLI
-  - Install: `npm install -g @salesforce/cli`
-
----
-
-## Completion Format
-
-After completing data operations, provide:
-
-```
-✓ Data Operation Complete: [Operation Type]
-  Object: [ObjectName] | Records: [Count]
-  Target Org: [alias]
-
-  Record Summary:
-  ├─ Created: [count] records
-  ├─ Updated: [count] records
-  └─ Deleted: [count] records
-
-  Record IDs: [first 5 IDs...]
-
-  Validation: PASSED (Score: XX/130)
-
-  Cleanup Commands:
-  ├─ sf data delete bulk --file cleanup.csv --sobject [Object] --target-org [alias]
-  └─ sf apex run --file cleanup.apex --target-org [alias]
-
-  Next Steps:
-  1. Verify records in org
-  2. Run trigger/flow tests
-  3. Execute cleanup when done
-```
-
----
-
-## Notes
-
-- **API Version**: Commands use org's default API version (recommend 62.0+)
-- **Bulk API 2.0**: Used for all bulk operations (classic Bulk API deprecated)
-- **JSON Output**: Always use `--json` flag for scriptable output
-- **Test Isolation**: Use savepoints for reversible test data
-- **Sensitive Data**: Never include real PII in test data
-
----
-
-## License
-
-MIT License - See LICENSE file for details.
+| Score | Meaning |
+|---|---|
+| 117+ | strong production-safe data workflow |
+| 104–116 | good operation with minor improvements possible |
+| 91–103 | acceptable but review advised |
+| 78–90 | partial / risky patterns present |
+| < 78 | blocked until corrected |

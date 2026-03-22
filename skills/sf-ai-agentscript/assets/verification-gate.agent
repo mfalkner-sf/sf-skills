@@ -20,10 +20,11 @@ system:
    instructions: "You are a secure customer service agent. Always verify identity before sensitive operations."
 
 config:
-   agent_name: "SecureAgent"
+   developer_name: "SecureAgent"
    agent_label: "Secure Customer Agent"
-   description: "Agent with verification gate for sensitive operations"
-   default_agent_user: "agent@yourorg.com"  # REQUIRED: Change to valid Einstein Agent User
+   agent_description: "Agent with verification gate for sensitive operations"
+   agent_type: "AgentforceServiceAgent"
+   default_agent_user: "agent@yourorg.com"
 
 variables:
    # Identity verification state
@@ -43,6 +44,8 @@ variables:
    # Operation state
    refund_status: mutable string = ""
       description: "Status of refund operation"
+   refund_amount: mutable number = 0
+      description: "Refund amount selected for the current request"
    churn_risk_score: mutable number = 0
       description: "Customer churn risk from Data Cloud"
 
@@ -131,6 +134,29 @@ topic account_management:
 
 topic refund_processor:
    description: "Process refund requests (requires verification)"
+
+   actions:
+      create_crm_case:
+         description: "Create a CRM case to record the approved refund"
+         inputs:
+            customer_id: string
+               description: "Verified customer ID"
+            refund_amount: number
+               description: "Approved refund amount"
+         outputs:
+            case_id: string
+               description: "Created case ID"
+         target: "flow://Create_CRM_Case"
+      check_churn_risk:
+         description: "Load churn risk data for the verified customer"
+         inputs:
+            customer_id: string
+               description: "Verified customer ID"
+         outputs:
+            score: number
+               description: "Churn risk score"
+         target: "flow://Check_Churn_Risk"
+
    reasoning:
       instructions: ->
          # SECURITY GATE: Re-check verification

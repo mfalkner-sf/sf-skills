@@ -19,10 +19,11 @@ system:
    instructions: "You are a helpful knowledge assistant. Always provide grounded answers based on retrieved knowledge."
 
 config:
-   agent_name: "RAGSearchAgent"
+   developer_name: "RAGSearchAgent"
    agent_label: "Knowledge Assistant"
-   description: "Agent demonstrating Prompt Template with Data Cloud RAG pattern"
-   default_agent_user: "agent@yourorg.com"  # REQUIRED: Change to valid Einstein Agent User
+   agent_description: "Agent demonstrating Prompt Template with Data Cloud RAG pattern"
+   agent_type: "AgentforceServiceAgent"
+   default_agent_user: "agent@yourorg.com"
 
 variables:
    # Search state
@@ -52,6 +53,35 @@ start_agent entry:
 
 topic knowledge_search:
    description: "Search knowledge base and generate grounded responses"
+
+   actions:
+      Search_Knowledge_Base:
+         description: "Search for relevant information in the knowledge base"
+         inputs:
+            query: string
+               description: "Customer's knowledge query"
+         outputs:
+            original_query: string
+               description: "Normalized query text"
+            retrieved_chunks: string
+               description: "Retrieved knowledge context"
+            has_results: boolean
+               description: "Whether matching knowledge was found"
+         target: "retriever://Search_Knowledge_Base"
+      Generate_Grounded_Response:
+         description: "Generate a grounded answer from retrieved knowledge"
+         inputs:
+            query: string
+               description: "Customer's question"
+            context: string
+               description: "Retrieved knowledge context"
+         outputs:
+            promptResponse: string
+               description: "Grounded answer"
+               is_displayable: False
+               is_used_by_planner: True
+         target: "prompt://Generate_Grounded_Response"
+
    reasoning:
       instructions: ->
          # POST-ACTION: Generate response after retrieval
@@ -91,7 +121,7 @@ topic knowledge_search:
          # Prompt Template for grounded response
          # Configure in Agentforce Assets with:
          # - Template instructions referencing retrieved context
-         # - Set output is_displayable: True (response shown to user)
+         # - Set output is_displayable: False and is_used_by_planner: True
          generate_answer: @actions.Generate_Grounded_Response
             description: "Generate answer from retrieved knowledge"
             available when @variables.has_results == True
@@ -115,6 +145,22 @@ topic knowledge_search:
 
 topic follow_up:
    description: "Handle follow-up questions using cached context"
+
+   actions:
+      Generate_Grounded_Response:
+         description: "Generate a grounded answer from cached knowledge"
+         inputs:
+            query: string
+               description: "Follow-up question"
+            context: string
+               description: "Cached retrieved knowledge"
+         outputs:
+            promptResponse: string
+               description: "Grounded follow-up answer"
+               is_displayable: False
+               is_used_by_planner: True
+         target: "prompt://Generate_Grounded_Response"
+
    reasoning:
       instructions: ->
          # COST OPTIMIZATION: Reuse cached search_results instead of re-searching

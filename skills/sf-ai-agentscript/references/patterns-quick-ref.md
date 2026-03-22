@@ -293,7 +293,7 @@ instructions: ->
 ```yaml
 # WRONG - Compilation error
 config:
-   agent_name: "MyAgent"      # 3 spaces
+   developer_name: "MyAgent"  # 3 spaces
         agent_label: "Label"  # 8 spaces - FAILS!
 ```
 

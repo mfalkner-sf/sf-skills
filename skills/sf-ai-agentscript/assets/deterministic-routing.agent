@@ -9,11 +9,11 @@
 #
 # KEY PATTERN:
 # In Agentforce Assets, set action outputs with:
-# - is_displayable: False  (LLM cannot show this to user)
-# - is_used_by_planner: True  (LLM can use for routing)
+# - is_displayable: False  (hide from direct customer display)
+# - is_used_by_planner: True  (planner can use for routing)
 #
-# This ensures the LLM routes based on classification but cannot
-# generate hallucinated responses based on the classification data.
+# This ensures the planner routes based on classification but the raw
+# classification label is not directly surfaced to the customer.
 
 system:
    messages:
@@ -22,10 +22,11 @@ system:
    instructions: "You are a customer service agent. Route users to the correct department based on their intent."
 
 config:
-   agent_name: "DeterministicRoutingAgent"
+   developer_name: "DeterministicRoutingAgent"
    agent_label: "Smart Router Agent"
-   description: "Agent demonstrating zero-hallucination intent routing pattern"
-   default_agent_user: "agent@yourorg.com"  # REQUIRED: Change to valid Einstein Agent User
+   agent_description: "Agent demonstrating zero-hallucination intent routing pattern"
+   agent_type: "AgentforceServiceAgent"
+   default_agent_user: "agent@yourorg.com"
 
 variables:
    # Intent classification (populated by action with is_displayable: False)
@@ -49,25 +50,21 @@ start_agent topic_selector:
          # ====================================================
 
          # Route ONLY when classification is complete
-         if @variables.needs_classification == False:
+         if @variables.needs_classification == False and @variables.confidence_score >= 80 and @variables.classified_intent == "billing":
+            transition to @topic.billing
+         if @variables.needs_classification == False and @variables.confidence_score >= 80 and @variables.classified_intent == "technical_support":
+            transition to @topic.technical_support
+         if @variables.needs_classification == False and @variables.confidence_score >= 80 and @variables.classified_intent == "sales":
+            transition to @topic.sales
+         if @variables.needs_classification == False and @variables.confidence_score >= 80 and @variables.classified_intent == "returns":
+            transition to @topic.returns
 
-            # HIGH-CONFIDENCE ROUTING
-            if @variables.confidence_score >= 80:
-               if @variables.classified_intent == "billing":
-                  transition to @topic.billing
-               if @variables.classified_intent == "technical_support":
-                  transition to @topic.technical_support
-               if @variables.classified_intent == "sales":
-                  transition to @topic.sales
-               if @variables.classified_intent == "returns":
-                  transition to @topic.returns
-
-            # LOW-CONFIDENCE: Confirm with user
-            if @variables.confidence_score < 80:
-               set @variables.low_confidence_warning = True
-               | I want to make sure I route you correctly.
-               | It sounds like you need help with **{!@variables.classified_intent}**.
-               | Is that correct?
+         # LOW-CONFIDENCE: Confirm with user
+         if @variables.needs_classification == False and @variables.confidence_score < 80:
+            set @variables.low_confidence_warning = True
+            | I want to make sure I route you correctly.
+            | It sounds like you need help with **{!@variables.classified_intent}**.
+            | Is that correct?
 
          # INITIAL STATE: Ask for help topic
          if @variables.needs_classification == True:

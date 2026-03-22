@@ -35,6 +35,33 @@
       "background_if_large": true,
       "large_threshold": "1000 records",
       "reason": "Large data imports can take significant time"
+    },
+    "sf-datacloud-harmonize": {
+      "commands": [
+        "sf data360 identity-resolution run",
+        "sf data360 data-graph refresh"
+      ],
+      "typical_duration": "5-20 minutes",
+      "background_if_no_wait": true,
+      "reason": "Identity resolution and data-graph refreshes can take several minutes to materialize results"
+    },
+    "sf-datacloud-segment": {
+      "commands": [
+        "sf data360 segment publish",
+        "sf data360 calculated-insight run"
+      ],
+      "typical_duration": "3-15 minutes",
+      "background_if_no_wait": true,
+      "reason": "Segment publishes and calculated insight runs often execute asynchronously and can take several minutes"
+    },
+    "sf-datacloud-retrieve": {
+      "commands": [
+        "sf data360 query async-create"
+      ],
+      "typical_duration": "1-10 minutes",
+      "background_if_large": true,
+      "large_threshold": "10000+ rows",
+      "reason": "Large Data Cloud query jobs are better handled asynchronously"
     }
   },
   "guardrails": {
@@ -457,6 +484,227 @@
       "triggerWhen": "user creates test data, performs bulk import/export, uses sf data CLI commands, or needs data factory patterns for Apex tests",
       "doNotTriggerWhen": "SOQL query writing only (use sf-soql), Apex test execution (use sf-testing), or metadata deployment (use sf-deploy)"
     },
+    "sf-datacloud": {
+      "keywords": [
+        "data cloud pipeline",
+        "datacloud pipeline",
+        "customer 360 pipeline",
+        "data space",
+        "data kit",
+        "sf data360",
+        "data360 doctor",
+        "unified profile pipeline",
+        "identity resolution pipeline"
+      ],
+      "intentPatterns": [
+        "set.*up.*data.*cloud",
+        "troubleshoot.*data.*cloud",
+        "create.*data.*cloud.*pipeline",
+        "inspect.*data.*space",
+        "inspect.*data.*kit",
+        "data360.*doctor",
+        "debug.*data.*cloud.*pipeline"
+      ],
+      "filePatterns": [],
+      "priority": "high",
+      "description": "Cross-phase Salesforce Data Cloud orchestration using the external community sf data360 runtime",
+      "triggerWhen": "user needs a multi-phase Data Cloud workflow, manages data spaces or data kits, troubleshoots Data Cloud across phases, or explicitly references `sf data360` at a broad product level",
+      "doNotTriggerWhen": "the task is isolated to a single Data Cloud phase, standard CRM SOQL, Apex-only work, or STDM/session tracing/parquet telemetry (use sf-ai-agentforce-observability)"
+    },
+    "sf-datacloud-connect": {
+      "keywords": [
+        "data cloud connection",
+        "data cloud connector",
+        "connector metadata",
+        "connector type",
+        "salesforcedotcom connector",
+        "redshift connector",
+        "snowflake connector",
+        "bigquery connector"
+      ],
+      "intentPatterns": [
+        "create.*data.*cloud.*connection",
+        "test.*data.*cloud.*connection",
+        "list.*data.*cloud.*connections",
+        "inspect.*connector",
+        "browse.*connection.*objects",
+        "browse.*connection.*databases"
+      ],
+      "filePatterns": [],
+      "priority": "medium",
+      "description": "Data Cloud connections, connectors, and source discovery",
+      "triggerWhen": "user manages Data Cloud connections, connectors, source metadata, or tests a connection",
+      "doNotTriggerWhen": "the task is about data streams, DLOs, DMOs, SQL/search, or STDM/session tracing"
+    },
+    "sf-datacloud-prepare": {
+      "keywords": [
+        "data stream",
+        "create-from-object",
+        "data lake object",
+        "dlo",
+        "data transform",
+        "document ai",
+        "docai",
+        "data cloud ingestion"
+      ],
+      "intentPatterns": [
+        "create.*data.*stream",
+        "inspect.*dlo",
+        "ingest.*into.*data.*cloud",
+        "create.*transform",
+        "run.*transform",
+        "generate.*docai"
+      ],
+      "filePatterns": [
+        "data-stream.*\\.json$",
+        ".*dlo.*\\.json$"
+      ],
+      "priority": "medium",
+      "description": "Data Cloud ingestion, streams, DLOs, transforms, and Document AI",
+      "triggerWhen": "user creates or manages Data Cloud streams, DLOs, transforms, or DocAI workflows",
+      "doNotTriggerWhen": "the task is connector-only setup, harmonization, or pure query/search work"
+    },
+    "sf-datacloud-harmonize": {
+      "keywords": [
+        "dmo",
+        "data model object",
+        "map to canonical",
+        "identity resolution",
+        "unified profile",
+        "data graph",
+        "universal id",
+        "data cloud mapping"
+      ],
+      "intentPatterns": [
+        "create.*dmo",
+        "map.*to.*canonical",
+        "create.*identity.*resolution",
+        "run.*identity.*resolution",
+        "build.*data.*graph",
+        "inspect.*unified.*profile"
+      ],
+      "filePatterns": [
+        ".*identity-resolution.*\\.json$",
+        ".*mapping.*\\.json$",
+        ".*data-graph.*\\.json$"
+      ],
+      "priority": "high",
+      "description": "Data Cloud DMOs, mappings, identity resolution, unified profiles, and data graphs",
+      "triggerWhen": "user works with Data Cloud DMOs, mappings, identity resolution, unified profiles, data graphs, or universal ID lookup",
+      "doNotTriggerWhen": "the task is only about streams/DLOs, segment design, SQL/search, or STDM/session tracing"
+    },
+    "sf-datacloud-segment": {
+      "keywords": [
+        "data cloud segment",
+        "segment publish",
+        "segment members",
+        "calculated insight",
+        "market segment",
+        "audience sql",
+        "segment count"
+      ],
+      "intentPatterns": [
+        "create.*segment",
+        "publish.*segment",
+        "count.*segment.*members",
+        "run.*calculated.*insight",
+        "troubleshoot.*segment",
+        "inspect.*calculated.*insight"
+      ],
+      "filePatterns": [
+        ".*segment.*\\.json$",
+        ".*calculated-insight.*\\.json$",
+        ".*ci.*\\.json$"
+      ],
+      "priority": "medium",
+      "description": "Data Cloud segments, calculated insights, and audience troubleshooting",
+      "triggerWhen": "user creates or publishes Data Cloud segments, manages calculated insights, or troubleshoots audience logic",
+      "doNotTriggerWhen": "the task is activation delivery, pure query/search work, or STDM/session tracing"
+    },
+    "sf-datacloud-act": {
+      "keywords": [
+        "activation target",
+        "data cloud activation",
+        "data action",
+        "data action target",
+        "activate segment",
+        "downstream audience delivery"
+      ],
+      "intentPatterns": [
+        "create.*activation",
+        "list.*activation.*targets",
+        "activate.*segment",
+        "create.*data.*action",
+        "inspect.*activation",
+        "update.*activation.*target"
+      ],
+      "filePatterns": [
+        ".*activation.*\\.json$",
+        ".*data-action.*\\.json$"
+      ],
+      "priority": "medium",
+      "description": "Data Cloud activations, activation targets, and data actions",
+      "triggerWhen": "user manages Data Cloud activations, activation targets, data actions, or downstream delivery setup",
+      "doNotTriggerWhen": "the task is segment design, search/query work, or STDM/session tracing"
+    },
+    "sf-datacloud-retrieve": {
+      "keywords": [
+        "data cloud sql",
+        "ssot sql",
+        "vector search",
+        "search index",
+        "async query",
+        "query describe",
+        "semantic search",
+        "data cloud query"
+      ],
+      "intentPatterns": [
+        "run.*data.*cloud.*query",
+        "describe.*data.*cloud.*table",
+        "create.*search.*index",
+        "troubleshoot.*vector.*search",
+        "run.*async.*query",
+        "inspect.*search.*index"
+      ],
+      "filePatterns": [
+        ".*search-index.*\\.json$"
+      ],
+      "priority": "high",
+      "description": "Data Cloud SQL, async query, search-index, vector-search, and metadata introspection workflows",
+      "triggerWhen": "user runs Data Cloud SQL, describe, async queries, vector search, search-index workflows, or metadata introspection",
+      "doNotTriggerWhen": "the task is CRM SOQL-only, segment design, or STDM/session tracing/parquet analysis"
+    },
+    "sf-docs": {
+      "keywords": [
+        "salesforce documentation",
+        "official docs",
+        "developer docs",
+        "help salesforce",
+        "help.salesforce.com",
+        "developer.salesforce.com",
+        "atlas",
+        "pdf guide",
+        "apex reference",
+        "api reference",
+        "agentforce docs",
+        "lwc docs"
+      ],
+      "intentPatterns": [
+        "find.*documentation",
+        "look.*up.*docs",
+        "official.*salesforce.*docs",
+        "search.*salesforce.*docs",
+        "where.*documented",
+        "help.*salesforce",
+        "developer.*salesforce.*docs",
+        "find.*reference",
+        "look.*up.*agentforce",
+        "research.*official.*docs"
+      ],
+      "filePatterns": [],
+      "priority": "high",
+      "description": "Official Salesforce documentation retrieval guidance for hard-to-fetch online docs such as developer.salesforce.com and help.salesforce.com"
+    },
     "sf-integration": {
       "keywords": [
         "callout",
@@ -813,6 +1061,164 @@
       "description": "Extract and analyze Agentforce session tracing data from Data Cloud",
       "triggerWhen": "user extracts STDM data from Data Cloud, analyzes agent session traces, debugs agent conversations via telemetry, or works with .parquet files from Agentforce",
       "doNotTriggerWhen": "testing agents (use sf-ai-agentforce-testing), Apex debug logs (use sf-debug), or building agents (use sf-ai-agentforce)"
+    },
+    "sf-industry-commoncore-omnistudio-analyze": {
+      "keywords": [
+        "omnistudio",
+        "omnistudio analyze",
+        "namespace detection",
+        "dependency graph",
+        "impact analysis",
+        "omnistudio inventory",
+        "vlocity",
+        "vlocity_cmt",
+        "vlocity_ins",
+        "omniprocess",
+        "component dependencies",
+        "omnistudio migration"
+      ],
+      "intentPatterns": [
+        "analyze.*omnistudio",
+        "detect.*namespace",
+        "omnistudio.*dependencies",
+        "impact.*analysis.*omnistudio",
+        "inventory.*omnistudio",
+        "omnistudio.*diagram",
+        "omnistudio.*migration",
+        "vlocity.*core"
+      ],
+      "filePatterns": [],
+      "priority": "high",
+      "description": "Cross-cutting OmniStudio analysis for namespace detection, dependency mapping, and impact analysis",
+      "triggerWhen": "user asks about OmniStudio dependencies, wants namespace detection (Core vs vlocity_cmt vs vlocity_ins), needs impact analysis across OmniStudio components, or requests dependency diagrams",
+      "doNotTriggerWhen": "authoring OmniScripts (use sf-industry-commoncore-omniscript), building FlexCards (use sf-industry-commoncore-flexcard), creating Integration Procedures (use sf-industry-commoncore-integration-procedure), or configuring Data Mappers (use sf-industry-commoncore-datamapper)"
+    },
+    "sf-industry-commoncore-datamapper": {
+      "keywords": [
+        "datamapper",
+        "data mapper",
+        "dataraptor",
+        "data raptor",
+        "omnidatatransform",
+        "extract",
+        "turbo extract",
+        "transform",
+        "load",
+        "field mapping",
+        "data mapping"
+      ],
+      "intentPatterns": [
+        "create.*data.*mapper",
+        "create.*dataraptor",
+        "build.*extract",
+        "build.*turbo.*extract",
+        "configure.*field.*mapping",
+        "create.*load",
+        "create.*transform",
+        "review.*data.*mapper",
+        "fix.*dataraptor"
+      ],
+      "filePatterns": [
+        "OmniDataTransform.*"
+      ],
+      "priority": "medium",
+      "description": "OmniStudio Data Mapper (formerly DataRaptor) creation and validation with 100-point scoring",
+      "triggerWhen": "user creates Data Mappers, configures field mappings, works with OmniDataTransform metadata, or asks about DataRaptor/Data Mapper patterns",
+      "doNotTriggerWhen": "building Integration Procedures (use sf-industry-commoncore-integration-procedure), authoring OmniScripts (use sf-industry-commoncore-omniscript), or analyzing cross-component dependencies (use sf-industry-commoncore-omnistudio-analyze)"
+    },
+    "sf-industry-commoncore-integration-procedure": {
+      "keywords": [
+        "integration procedure",
+        "ip",
+        "server-side orchestration",
+        "dataraptor action",
+        "remote action",
+        "http action",
+        "ip action",
+        "omniprocess",
+        "integration procedure action",
+        "procedure chaining"
+      ],
+      "intentPatterns": [
+        "create.*integration.*procedure",
+        "build.*ip",
+        "create.*ip",
+        "orchestrate.*server.*side",
+        "chain.*integration.*procedure",
+        "add.*dataraptor.*action",
+        "add.*remote.*action",
+        "review.*integration.*procedure",
+        "fix.*ip"
+      ],
+      "filePatterns": [
+        "OmniIntegrationProcedure.*"
+      ],
+      "priority": "medium",
+      "description": "OmniStudio Integration Procedure creation and validation with 110-point scoring",
+      "triggerWhen": "user creates Integration Procedures, adds DataRaptor steps, configures Remote Actions, or reviews existing IP configurations",
+      "doNotTriggerWhen": "building OmniScripts (use sf-industry-commoncore-omniscript), creating Data Mappers directly (use sf-industry-commoncore-datamapper), or analyzing cross-component dependencies (use sf-industry-commoncore-omnistudio-analyze)"
+    },
+    "sf-industry-commoncore-omniscript": {
+      "keywords": [
+        "omniscript",
+        "guided process",
+        "digital experience",
+        "step flow",
+        "omniscript element",
+        "propertysetconfig",
+        "type subtype language",
+        "omniscript step",
+        "omniscript action",
+        "save for later"
+      ],
+      "intentPatterns": [
+        "create.*omniscript",
+        "build.*omniscript",
+        "design.*guided.*process",
+        "create.*digital.*experience",
+        "add.*omniscript.*step",
+        "configure.*omniscript.*element",
+        "review.*omniscript",
+        "fix.*omniscript"
+      ],
+      "filePatterns": [
+        "OmniScript.*"
+      ],
+      "priority": "medium",
+      "description": "OmniStudio OmniScript creation and validation with 120-point scoring",
+      "triggerWhen": "user creates OmniScripts, designs step flows, configures element types, or reviews existing OmniScript configurations",
+      "doNotTriggerWhen": "building FlexCards (use sf-industry-commoncore-flexcard), creating Integration Procedures directly (use sf-industry-commoncore-integration-procedure), or analyzing dependencies (use sf-industry-commoncore-omnistudio-analyze)"
+    },
+    "sf-industry-commoncore-flexcard": {
+      "keywords": [
+        "flexcard",
+        "flex card",
+        "omniuicard",
+        "ui card",
+        "data source binding",
+        "card layout",
+        "card list",
+        "flyout card",
+        "tabbed card",
+        "child card"
+      ],
+      "intentPatterns": [
+        "create.*flexcard",
+        "build.*flexcard",
+        "create.*flex.*card",
+        "configure.*data.*source",
+        "design.*card.*layout",
+        "add.*action.*button",
+        "review.*flexcard",
+        "fix.*flexcard"
+      ],
+      "filePatterns": [
+        "OmniUiCard.*"
+      ],
+      "priority": "medium",
+      "description": "OmniStudio FlexCard creation and validation with 130-point scoring",
+      "triggerWhen": "user creates FlexCards, configures data sources, designs card layouts, or asks about OmniUiCard metadata",
+      "doNotTriggerWhen": "building OmniScripts (use sf-industry-commoncore-omniscript), creating Integration Procedures (use sf-industry-commoncore-integration-procedure), or analyzing dependencies (use sf-industry-commoncore-omnistudio-analyze)"
     }
   }
 }

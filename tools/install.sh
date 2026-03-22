@@ -498,11 +498,14 @@ check_node() {
     fi
 }
 
+
 # ============================================================================
 # INSTALLATION
 # ============================================================================
 
 download_and_run_installer() {
+    local with_datacloud_runtime="${1:-0}"
+
     print_step "Downloading sf-skills installer..."
 
     local tmp_installer="/tmp/sf-skills-install-$$.py"
@@ -518,7 +521,12 @@ download_and_run_installer() {
     echo ""
 
     # Run Python installer with flags to indicate we're calling from bash
-    python3 "$tmp_installer" --force --called-from-bash
+    local installer_args=(--force --called-from-bash)
+    if [[ "$with_datacloud_runtime" == "1" ]]; then
+        installer_args+=(--with-datacloud-runtime)
+    fi
+
+    python3 "$tmp_installer" "${installer_args[@]}"
     local result=$?
 
     # Cleanup
@@ -577,6 +585,54 @@ run_health_check() {
         echo -e "  Node.js:      ${YELLOW}○${NC} Not installed (LWC validation disabled)"
     fi
 
+    # sf-docs browser runtime
+    local sf_docs_runtime
+    sf_docs_runtime=$(python3 - <<'PY' 2>/dev/null || true
+import os
+import subprocess
+from pathlib import Path
+
+runtime_root = Path.home() / '.claude' / '.sf-docs-runtime'
+venv_root = runtime_root / 'venv'
+candidates = [venv_root / 'bin' / 'python', venv_root / 'bin' / 'python3', venv_root / 'Scripts' / 'python.exe']
+runtime_python = next((p for p in candidates if p.exists()), None)
+
+def module_available(python_path, module_name):
+    if not python_path:
+        return False
+    result = subprocess.run(
+        [str(python_path), '-c', f"import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('{module_name}') else 1)"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, 'PLAYWRIGHT_BROWSERS_PATH': str(runtime_root / 'ms-playwright')},
+    )
+    return result.returncode == 0
+
+playwright_ok = module_available(runtime_python, 'playwright')
+stealth_ok = module_available(runtime_python, 'playwright_stealth')
+browser_ok = False
+if playwright_ok:
+    try:
+        code = "from pathlib import Path; from playwright.sync_api import sync_playwright; " \
+               "import sys; " \
+               "\nwith sync_playwright() as p:\n" \
+               "    sys.exit(0 if Path(p.chromium.executable_path).exists() else 1)"
+        result = subprocess.run(
+            [str(runtime_python), '-c', code],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env={**os.environ, 'PLAYWRIGHT_BROWSERS_PATH': str(runtime_root / 'ms-playwright')},
+        )
+        browser_ok = result.returncode == 0
+    except Exception:
+        browser_ok = False
+print(f"venv={'yes' if runtime_python else 'no'} playwright={'yes' if playwright_ok else 'no'} stealth={'yes' if stealth_ok else 'optional'} chromium={'yes' if browser_ok else 'no'}")
+PY
+)
+    if [[ -n "$sf_docs_runtime" ]]; then
+        echo -e "  sf-docs rt:   ${GREEN}✓${NC} $sf_docs_runtime"
+    fi
+
     echo "────────────────────────────────────────"
 }
 
@@ -595,6 +651,24 @@ show_next_steps() {
     echo -e "  2. ${BOLD}Try your first skill${NC}"
     echo "     In Claude Code, type: /sf-apex"
     echo ""
+    echo -e "  3. ${BOLD}Use sf-docs for official documentation lookup${NC}"
+    echo "     sf-docs provides guidance + browser helpers for official Salesforce docs, including Help, Developer, Architect, and Admin sites"
+    echo ""
+
+    if [[ "$env_type" == "enterprise" ]]; then
+        echo -e "  4. ${BOLD}Save your enterprise profile${NC}"
+        echo "     python3 ~/.claude/sf-skills-install.py --profile save enterprise"
+        echo ""
+        echo -e "  ${DIM}ℹ️  Enterprise note: LLM-based evaluation is disabled for Bedrock"
+        echo -e "     gateway configs. Pattern-based guardrails still active.${NC}"
+        echo ""
+    else
+        echo -e "  4. ${BOLD}Connect a Salesforce org${NC} (if not already)"
+        echo "     Run: sf org login web"
+        echo ""
+    fi
+
+    echo -e "  📖 Documentation: ${CYAN}${DOCS_URL}${NC}"
 
     if [[ "$env_type" == "enterprise" ]]; then
         echo -e "  3. ${BOLD}Save your enterprise profile${NC}"
@@ -752,6 +826,7 @@ main() {
         fi
     fi
 
+
     # ═══════════════════════════════════════════════════════════════════════
     # Phase 4: Installation
     # ═══════════════════════════════════════════════════════════════════════
@@ -759,7 +834,15 @@ main() {
     echo -e "${BOLD}Phase 4: Installing sf-skills${NC}"
     echo "════════════════════════════════════════"
 
-    if ! download_and_run_installer; then
+    local with_datacloud_runtime="0"
+    echo ""
+    print_info "Optional add-on: community sf data360 runtime for the sf-datacloud family"
+    explain "Only needed if you plan to use the Data Cloud skills for live org execution."
+    if confirm "Install the optional Data Cloud runtime too?" "n"; then
+        with_datacloud_runtime="1"
+    fi
+
+    if ! download_and_run_installer "$with_datacloud_runtime"; then
         echo ""
         # Check if this was an SSL error
         if ! python3 -c "import urllib.request; urllib.request.urlopen('https://api.github.com', timeout=5)" 2>/dev/null; then

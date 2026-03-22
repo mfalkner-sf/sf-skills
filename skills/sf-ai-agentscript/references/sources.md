@@ -4,7 +4,7 @@
 
 | Source | Contribution |
 |--------|--------------|
-| [trailheadapps/agent-script-recipes](https://github.com/trailheadapps/agent-script-recipes) | 20 reference recipes across 4 categories, variable patterns, action target catalog. `.airules/AGENT_SCRIPT.md` rules document contributes error prevention patterns (bare action names, `@inputs` in `set`, `run` vs utility resolution), block ordering spec, and discovery questions. Contributors: pozil, msrivastav13, muenzpraeger, albarivas, charlesw-salesforce (Apache-2.0) |
+| [trailheadapps/agent-script-recipes](https://github.com/trailheadapps/agent-script-recipes) | High-value secondary source for examples and emerging patterns. Mar 2026 audit against upstream commit `9c90176` confirmed: `developer_name` is now canonical, `@actions.` prefix guidance is explicit, and `run @actions.X` vs reasoning-level utility resolution is documented. Caveats: repo still contains stale/inconsistent examples (`connections:` plural wrapper, legacy config `description:` instead of preferred `agent_description`, mixed lifecycle-hook guidance, strong Employee-Agent bias, weak Service-Agent coverage). Treat as a corroborating source, not sole truth. See [upstream-recipes-audit.md](upstream-recipes-audit.md). |
 | [Official GA Documentation](https://developer.salesforce.com/docs/ai/agentforce/guide/agent-script.html) | GA alignment audit (v2.4.0): `filter_from_agent` as GA standard output property, `@system_variables.user_input`, `prompt://` shorthand, `developer_name` output property, `go_to_` naming convention, `is None` vs `== ""` distinction, topic-level `system:` overrides, variable `label` property, `timestamp`/`currency` type restrictions |
 | Salesforce Official Documentation | Core syntax, API references, deployment guides |
 | TDD Validation (this skill) | 13 validation agents confirming current-release syntax compatibility |
@@ -14,3 +14,5 @@
 | [aquivalabs/my-org-butler](https://github.com/aquivalabs/my-org-butler) | Official sources registry pattern, known-issues tracking structure, verification protocol, Builder UI → Agent Script migration guide, self-improvement protocol |
 
 > **⚠️ Note on Feature Validation**: Some patterns from external sources (e.g., `always_expect_input:`) do NOT compile in Winter '26. Action metadata properties (`label:`, `require_user_confirmation:`, etc.) are valid on **action definitions with targets** but NOT on `@utils.transition`. The `before_reasoning:`/`after_reasoning:` lifecycle hooks ARE valid but require **direct content** (no `instructions:` wrapper). This skill documents only patterns that pass TDD validation.
+
+> **Source-of-truth order for this skill**: official Salesforce docs → local validate/preview/publish evidence → upstream/community examples. When these disagree, prefer observed org behavior over recipe prose.

@@ -17,330 +17,194 @@ metadata:
   analysis_library: "Polars"
 ---
 
-<!-- TIER: 1 | ENTRY POINT -->
-<!-- This is the starting document - read this FIRST -->
-<!-- Pattern: Follows sf-data for Python extraction scripts -->
-
 # sf-ai-agentforce-observability: Agentforce Session Tracing Extraction & Analysis
 
-Expert in extracting and analyzing Agentforce session tracing data from Salesforce Data 360. Supports high-volume data extraction (1-10M records/day), Parquet storage, and Polars-based analysis for debugging agent behavior.
+Use this skill when the user needs **trace-based observability**, not just testing: extract Session Tracing Data Model (STDM) records, work with Parquet datasets, reconstruct session timelines, analyze topic/action latency, or debug agent behavior from Data 360 telemetry.
 
-## Core Responsibilities
+## When This Skill Owns the Task
 
-1. **Session Extraction**: Extract STDM (Session Tracing Data Model) data via Data 360 Query API
-2. **Data Storage**: Write to Parquet format with PyArrow for efficient storage
-3. **Analysis**: Polars-based lazy evaluation for memory-efficient analysis
-4. **Debugging**: Session timeline reconstruction for troubleshooting agent issues
-5. **Cross-Skill Integration**: Works with sf-connected-apps for auth, sf-ai-agentscript for fixes
+Use `sf-ai-agentforce-observability` when the work involves:
+- Data 360 / Session Tracing extraction
+- `.parquet` files from Agentforce telemetry
+- session timeline reconstruction
+- trace-driven debugging of topic routing, action failures, or latency
+- Polars / PyArrow-based analysis of large telemetry datasets
 
-## Document Map
-
-| Need | Document | Description |
-|------|----------|-------------|
-| **Quick start** | [README.md](README.md) | Installation & basic usage |
-| **Data model** | [references/data-model-reference.md](references/data-model-reference.md) | Full STDM schema documentation |
-| **Query patterns** | [references/query-patterns.md](references/query-patterns.md) | Data Cloud SQL examples |
-| **Analysis recipes** | [references/analysis-cookbook.md](references/analysis-cookbook.md) | Common Polars patterns |
-| **CLI reference** | [references/cli-reference.md](references/cli-reference.md) | Complete command documentation |
-| **Auth setup** | [references/auth-setup.md](references/auth-setup.md) | JWT Bearer configuration |
-| **Troubleshooting** | [references/troubleshooting.md](references/troubleshooting.md) | Common issues & fixes |
-| **Analysis examples** | [references/analysis-examples.md](references/analysis-examples.md) | Session summary & debug timeline output |
-| **Billing & issues** | [references/billing-and-troubleshooting.md](references/billing-and-troubleshooting.md) | Credit consumption & common errors |
-| **Builder trace API** | [references/builder-trace-api.md](references/builder-trace-api.md) | Internal trace endpoint investigation & capture tooling |
-| **Execution lifecycle** | [references/agent-execution-lifecycle.md](references/agent-execution-lifecycle.md) | 6-phase model, script-to-trace mapping, timing analysis |
+Delegate elsewhere when the user is:
+- formally testing agents → [sf-ai-agentforce-testing](../sf-ai-agentforce-testing/SKILL.md)
+- debugging Apex logs → [sf-debug](../sf-debug/SKILL.md)
+- authoring or reconfiguring the agent itself → [sf-ai-agentforce](../sf-ai-agentforce/SKILL.md) or [sf-ai-agentscript](../sf-ai-agentscript/SKILL.md)
 
 ---
 
-## CRITICAL: Prerequisites Checklist
+## Prerequisites That Must Exist
 
-Before extracting session data, verify:
+Before extraction, verify:
+- Data 360 is enabled
+- Session Tracing is enabled
+- the Salesforce Standard Data Model version is sufficient
+- Einstein / Agentforce capabilities are enabled in the org
+- JWT / ECA auth for Data 360 access is configured
 
-| Check | How to Verify | Why |
-|-------|---------------|-----|
-| **Data 360 enabled** | Setup → Data 360 | Required for Query API |
-| **Salesforce Standard Data Model v1.124+** | Setup → Apps → Packaging → Installed Packages | Required for session tracing DMOs |
-| **Einstein Generative AI enabled** | Setup → Einstein Generative AI | Enables agent capabilities |
-| **Session Tracing enabled** | Setup → Einstein Audit, Analytics, and Monitoring | Must toggle ON to collect data |
-| **JWT Auth configured** | Use `sf-connected-apps` | Required for Data 360 API |
+If auth is missing, hand off to:
+- [sf-connected-apps](../sf-connected-apps/SKILL.md)
 
-> **Official Setup Guide**: [Set Up Agentforce Session Tracing](https://help.salesforce.com/s/articleView?id=ai.generative_ai_session_trace_setup.htm)
-
-### Auth Setup (via sf-connected-apps)
-
-```bash
-# 1. Create key directory
-mkdir -p ~/.sf/jwt
-
-# 2. Generate certificate (naming convention: {org}-agentforce-observability)
-openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 \
-  -keyout ~/.sf/jwt/myorg-agentforce-observability.key \
-  -out ~/.sf/jwt/myorg-agentforce-observability.crt \
-  -subj "/CN=AgentforceObservability/O=MyOrg"
-
-# 3. Secure the private key
-chmod 600 ~/.sf/jwt/myorg-agentforce-observability.key
-
-# 4. Create External Client App in Salesforce (see references/auth-setup.md)
-# Required scopes: cdp_query_api, refresh_token/offline_access
-```
-
-**Key Path Resolution Order:**
-1. Explicit `--key-path` argument
-2. App-specific: `~/.sf/jwt/{org}-agentforce-observability.key`
-3. Generic fallback: `~/.sf/jwt/{org}.key`
-
-See [references/auth-setup.md](references/auth-setup.md) for detailed instructions.
+Deep setup guide:
+- [references/auth-setup.md](references/auth-setup.md)
 
 ---
 
-## T6 Live API Discovery Summary
+## What This Skill Works With
 
-**Validated: January 30, 2026** | **24 DMOs Found** | **260+ Test Points**
+### Core storage / analysis model
+- extraction via Data 360 APIs
+- Parquet for storage efficiency
+- Polars for large-scale lazy analysis
 
-| Category | DMOs | Status |
-|----------|------|--------|
-| **Session Tracing** | 5 | All Found (Session, Interaction, Step, Message, Participant) |
-| **Agent Optimizer** | 6 | All Found (Moment, Tag system) |
-| **GenAI Audit** | 13 | All Found (Generation, Quality, Feedback, Gateway) |
-| **RAG Quality** | 3 | Not Found (GenAIRetriever* DMOs don't exist) |
+### Core STDM entities
+At minimum, expect work around:
+- session
+- interaction / turn
+- interaction step
+- moment
+- message
 
-**Key Discoveries:**
-- Field naming: API uses `AiAgent` (lowercase 'i'), not `AIAgent`
-- Agent name location: Stored on `Moment`, not `Session`
-- Channel types: `E & O`, `Builder`, `SCRT2 - EmbeddedMessaging`, `Voice`, `NGC`
-- Participant roles: `USER`, `AGENT` (not Owner/Observer)
+GenAI Trust Layer / audit records may also be relevant for content-quality and generation debugging.
 
----
-
-## Session Tracing Data Model (STDM)
-
-> See [references/data-model-reference.md](references/data-model-reference.md) for the complete field-level schema of all 5 core DMOs + 13 GenAI Audit DMOs.
-
-**5 Core DMOs** — all field names use `AiAgent` prefix (lowercase 'i'):
-
-| DMO | Key | Relationship | Primary Fields |
-|-----|-----|-------------|----------------|
-| `AIAgentSession__dlm` | `Id__c` | Root | StartTimestamp, EndTimestamp, ChannelType, EndType |
-| `AIAgentInteraction__dlm` | `Id__c` | Session → N Turns | TopicApiName, InteractionType, TraceId |
-| `AIAgentInteractionStep__dlm` | `Id__c` | Turn → N Steps | StepType (LLM/ACTION), InputValue, OutputValue, Error |
-| `AIAgentMoment__dlm` | `Id__c` | Session (NOT Turn) | **AgentApiName lives here**, RequestSummary, ResponseSummary |
-| `AIAgentMessage__dlm` | `Id__c` | Turn → Messages | Content, Role, Timestamp |
-
-**13 GenAI Trust Layer DMOs** — detectors for toxicity, PII, prompt defense, instruction adherence:
-
-| DMO | Purpose | Key Fields |
-|-----|---------|------------|
-| `GenAIGatewayRequest__dlm` | LLM request details | model, provider, tokens, safety flags |
-| `GenAIGeneration__dlm` | LLM output | responseText, links to Steps via GenerationId |
-| `GenAIContentQuality__dlm` | Trust Layer assessment | isToxicityDetected |
-| `GenAIContentCategory__dlm` | Detector results | detectorType, category, confidence value |
-| `GenAIFeedback__dlm` | User feedback | GOOD/BAD + detail comments |
+Full schema:
+- [references/data-model-reference.md](references/data-model-reference.md)
 
 ---
 
-## Workflow (5-Phase Pattern)
+## Required Context to Gather First
 
-### Phase 1: Requirements Gathering
-
-**Ask the user** to gather:
-
-| # | Question | Options |
-|---|----------|---------|
-| 1 | Target org | Org alias from `sf org list` |
-| 2 | Time range | Last N days / Date range |
-| 3 | Agent filter | All agents / Specific API names |
-| 4 | Output format | Parquet (default) / CSV |
-| 5 | Analysis type | Summary / Debug session / Full extraction |
-
-### Phase 2: Auth Configuration
-
-Verify JWT auth is configured:
-
-```python
-from scripts.auth import Data360Auth
-
-auth = Data360Auth(
-    org_alias="myorg",
-    consumer_key="YOUR_CONSUMER_KEY"
-)
-
-# Test authentication
-token = auth.get_token()
-print(f"Auth successful: {token[:20]}...")
-```
-
-If auth fails, use the **sf-connected-apps** skill: "Setup JWT Bearer for Data 360"
-
-### Phase 3: Extraction
-
-**Basic Extraction (last 7 days):**
-```bash
-python3 scripts/cli.py extract \
-  --org prod \
-  --days 7 \
-  --output ./stdm_data
-```
-
-**Filtered Extraction:**
-```bash
-python3 scripts/cli.py extract \
-  --org prod \
-  --since 2026-01-01 \
-  --until 2026-01-28 \
-  --agent Customer_Support_Agent \
-  --output ./stdm_data
-```
-
-**Session Tree (specific session):**
-```bash
-python3 scripts/cli.py extract-tree \
-  --org prod \
-  --session-id "a0x..." \
-  --output ./debug_session
-```
-
-### Phase 4: Analysis
-
-**Session Summary:**
-```python
-from scripts.analyzer import STDMAnalyzer
-from pathlib import Path
-
-analyzer = STDMAnalyzer(Path("./stdm_data"))
-
-# High-level summary
-summary = analyzer.session_summary()
-print(summary)
-
-# Step distribution by agent
-steps = analyzer.step_distribution(agent_name="Customer_Support_Agent")
-print(steps)
-
-# Topic routing analysis
-topics = analyzer.topic_analysis()
-print(topics)
-```
-
-**Debug Specific Session:**
-```bash
-python3 scripts/cli.py debug-session \
-  --data-dir ./stdm_data \
-  --session-id "a0x..."
-```
-
-### Phase 5: Integration & Next Steps
-
-Based on analysis findings:
-
-| Finding | Next Step | Skill |
-|---------|-----------|-------|
-| Topic mismatch | Improve topic descriptions | `sf-ai-agentscript` |
-| Action failures | Debug Flow/Apex | `sf-flow`, `sf-debug` |
-| Slow responses | Optimize actions | `sf-apex` |
-| Missing coverage | Add test cases | `sf-ai-agentforce-testing` |
+Ask for or infer:
+- target org alias
+- time window or date range
+- agent filter, if any
+- whether the goal is extraction, summary analysis, or single-session debugging
+- output location for extracted data
+- whether the user already has Parquet files on disk
 
 ---
 
-## CLI Quick Reference
+## Recommended Workflow
 
-### Extraction Commands
+### 1. Verify setup and auth
+Confirm Data 360 tracing exists and JWT/ECA auth is working.
 
-| Command | Purpose | Example |
-|---------|---------|---------|
-| `extract` | Extract session data | `extract --org prod --days 7` |
-| `extract-tree` | Extract full session tree | `extract-tree --org prod --session-id "a0x..."` |
-| `extract-incremental` | Resume from last run | `extract-incremental --org prod` |
+### 2. Choose the extraction mode
+| Need | Default approach |
+|---|---|
+| recent telemetry snapshot | extract last N days |
+| focused investigation | filtered extraction by date and agent |
+| one broken conversation | extract or debug a single session tree |
+| ongoing usage analytics | incremental extraction |
 
-### Analysis Commands
+### 3. Extract to Parquet
+Use the provided scripts under `scripts/` rather than reimplementing extraction logic.
 
-| Command | Purpose | Example |
-|---------|---------|---------|
-| `analyze` | Generate summary stats | `analyze --data-dir ./stdm_data` |
-| `debug-session` | Timeline view | `debug-session --session-id "a0x..."` |
-| `topics` | Topic analysis | `topics --data-dir ./stdm_data` |
+### 4. Analyze with Polars
+Common analysis goals:
+- session volume and duration
+- topic distribution
+- action step failures
+- latency hotspots
+- abandonment / escalation patterns
+- session-level timeline reconstruction
 
-### Common Flags
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--org` | Target org alias | Required |
-| `--consumer-key` | ECA consumer key | `$SF_CONSUMER_KEY` env var |
-| `--key-path` | JWT private key path | `~/.sf/jwt/{org}-agentforce-observability.key` |
-| `--days` | Last N days | 7 |
-| `--since` / `--until` | Date range (YYYY-MM-DD) | - / Today |
-| `--agent` | Filter by agent API name | All |
-| `--output` | Output directory | `./stdm_data` |
-| `--verbose` | Detailed logging | False |
-
-See [references/cli-reference.md](references/cli-reference.md) for complete documentation.
+### 5. Convert findings into next actions
+Typical outcomes:
+- topic mismatch → improve routing or descriptions
+- action failure → inspect Flow / Apex implementation
+- latency issue → optimize downstream action path
+- test gap → add targeted agent tests
 
 ---
 
-## Analysis Examples
+## High-Signal Operational Rules
 
-> See [references/analysis-examples.md](references/analysis-examples.md) for full session summary and debug timeline output examples.
+- treat STDM as **read-only telemetry**
+- expect ingestion lag; this is not perfect real-time debugging
+- use date filters and focused extraction to avoid unnecessary volume / query cost
+- prefer Parquet over ad hoc JSON for durable analysis
+- use lazy Polars patterns for large datasets
 
-**Session Summary**: Shows sessions by agent (count, avg turns, avg duration) and end type distribution (completed/escalated/abandoned).
+Common pitfalls:
+- assuming missing data means no issue, when tracing may simply not be enabled
+- running huge broad queries without date or agent filters
+- trying to fix the agent inside this skill instead of handing off to authoring / testing skills
 
-**Debug Timeline**: Reconstructs a session step-by-step — input → topic routing → LLM steps → action steps → output — with timestamps and I/O payloads.
+---
+
+## Output Format
+
+When finishing, report in this order:
+1. **What data was extracted or analyzed**
+2. **Scope** (org, dates, agent filter, session IDs)
+3. **Key findings**
+4. **Likely root causes**
+5. **Recommended next skill / next action**
+
+Suggested shape:
+
+```text
+Observability task: <extract / analyze / debug-session>
+Scope: <org, dates, agents, session ids>
+Artifacts: <directories / parquet files>
+Findings: <latency, routing, action, quality, abandonment patterns>
+Root cause: <best current explanation>
+Next step: <testing, agent fix, flow fix, apex fix>
+```
 
 ---
 
 ## Cross-Skill Integration
 
-| Skill | When | How to Invoke |
-|-------|------|---------------|
-| `sf-connected-apps` | Auth setup | Use the **sf-connected-apps** skill: "JWT Bearer for Data Cloud" |
-| `sf-ai-agentscript` | Fix topic routing issues | Use the **sf-ai-agentscript** skill: "Fix topic: [issue]" |
-| `sf-flow` / `sf-debug` | Debug action failures | Use the **sf-debug** skill: "Analyze agent action failure" |
-| `sf-ai-agentforce-testing` | Create test cases from patterns | Use the **sf-ai-agentforce-testing** skill: "Add test cases" |
-| `sf-ai-agentforce-testing` | Real-time agent trace analysis | Use **sf-ai-agentforce-testing** Phase F: trace-enriched preview testing |
+| Need | Delegate to | Reason |
+|---|---|---|
+| auth / JWT setup | [sf-connected-apps](../sf-connected-apps/SKILL.md) | Data 360 access |
+| fix agent routing / behavior | [sf-ai-agentscript](../sf-ai-agentscript/SKILL.md) | authoring corrections |
+| formal regression / coverage tests | [sf-ai-agentforce-testing](../sf-ai-agentforce-testing/SKILL.md) | reproducible test loops |
+| Flow-backed action debugging | [sf-flow](../sf-flow/SKILL.md) | declarative repair |
+| Apex-backed action debugging | [sf-debug](../sf-debug/SKILL.md) or [sf-apex](../sf-apex/SKILL.md) | code / log investigation |
 
 ---
 
-## Key Insights
+## Reference Map
 
-| Insight | Description | Action |
-|---------|-------------|--------|
-| **STDM is read-only** | Data 360 stores traces; cannot modify | Use for analysis only |
-| **Session lag** | Data may lag 5-15 minutes | Don't expect real-time |
-| **Volume limits** | Query API: 10M records/day | Use incremental extraction |
-| **Parquet efficiency** | 10x smaller than JSON | Always use Parquet for storage |
-| **Lazy evaluation** | Polars scans without loading | Handles 100M+ rows |
-| **~24 records per LLM call** | Each round-trip generates ~24 records | Factor into volume estimates |
+### Start here
+- [README.md](README.md)
+- [references/basic-extraction.md](references/basic-extraction.md)
+- [references/filtered-extraction.md](references/filtered-extraction.md)
+- [references/cli-reference.md](references/cli-reference.md)
 
----
+### Data model / querying
+- [references/data-model-reference.md](references/data-model-reference.md)
+- [references/query-patterns.md](references/query-patterns.md)
+- [references/client-demo-queries.md](references/client-demo-queries.md)
 
-## Billing & Common Issues
+### Analysis / debugging
+- [references/analysis-cookbook.md](references/analysis-cookbook.md)
+- [references/analysis-examples.md](references/analysis-examples.md)
+- [references/debugging-sessions.md](references/debugging-sessions.md)
+- [references/polars-cheatsheet.md](references/polars-cheatsheet.md)
+- [references/agent-execution-lifecycle.md](references/agent-execution-lifecycle.md)
 
-> See [references/billing-and-troubleshooting.md](references/billing-and-troubleshooting.md) for credit consumption details and error resolution.
-
-**Quick reference**: Session Tracing consumes Data 360 credits. ~24 records per LLM round-trip. 1,000 sessions/day × 4 turns × 24 = ~96K records/day. Use [Digital Wallet](https://help.salesforce.com/s/articleView?id=sf.digital_wallet.htm) for consumption tracking.
-
-| Error | Quick Fix |
-|-------|-----------|
-| `401 Unauthorized` | Refresh token or reconfigure ECA |
-| `No session data` | Enable Session Tracing in Agent Settings |
-| `Query timeout` | Add date filters, use incremental |
-| `Memory error` | Use Polars lazy frames |
-
----
-
-## Output Directory Structure
-
-```
-stdm_data/
-├── sessions/          # date=YYYY-MM-DD/part-0000.parquet
-├── interactions/      # date=YYYY-MM-DD/part-0000.parquet
-├── steps/             # date=YYYY-MM-DD/part-0000.parquet
-├── messages/          # date=YYYY-MM-DD/part-0000.parquet
-└── metadata/          # extraction.json + watermark.json (incremental)
-```
+### Auth / troubleshooting
+- [references/auth-setup.md](references/auth-setup.md)
+- [references/troubleshooting.md](references/troubleshooting.md)
+- [references/billing-and-troubleshooting.md](references/billing-and-troubleshooting.md)
+- [references/builder-trace-api.md](references/builder-trace-api.md)
+- [scripts/](scripts/)
 
 ---
 
-## Dependencies
+## Score Guide
 
-**Python 3.10+**: `polars>=1.0`, `pyarrow>=15.0`, `pyjwt>=2.8`, `cryptography>=42.0`, `httpx>=0.27`, `rich>=13.0`, `click>=8.1`, `pydantic>=2.6`
-
-Install: `pip install -r requirements.txt`
+| Score | Meaning |
+|---|---|
+| 90+ | strong telemetry-backed diagnosis |
+| 75–89 | useful analysis with minor gaps |
+| 60–74 | partial visibility only |
+| < 60 | insufficient evidence; gather more telemetry |
