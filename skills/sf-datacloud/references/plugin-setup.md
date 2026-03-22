@@ -53,6 +53,8 @@ bash ~/.claude/skills/sf-datacloud/scripts/verify-plugin.sh myorg
 node ~/.claude/skills/sf-datacloud/scripts/diagnose-org.mjs -o myorg --json
 ```
 
+For newer command families such as `sf data360 query hybrid` and recent pagination fixes, update the community runtime to the latest upstream commit by re-running the bootstrap helper.
+
 `sf data360 doctor` is useful, but it is not the only readiness signal. On partially provisioned orgs it can fail even when other read-only Data Cloud commands still work. The helper script treats `doctor` as advisory and falls back to additional smoke checks.
 
 Use `diagnose-org.mjs` when you need phase-specific readiness classification instead of a simple pass/fail check. It helps distinguish:

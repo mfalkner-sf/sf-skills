@@ -16,6 +16,7 @@ Connection and connector workflows for Salesforce Data Cloud.
 - start with inspection before mutation
 - use `2>/dev/null` to suppress linked-plugin warning noise
 - some credential setup remains outside the CLI runtime
+- API-based connection creation is supported, but payload fields vary by connector type
 
 ## Example requests
 
@@ -33,7 +34,13 @@ sf data360 connection connector-list -o myorg 2>/dev/null
 sf data360 connection list -o myorg --connector-type SalesforceDotCom 2>/dev/null
 sf data360 connection get -o myorg --name SalesforceDotCom_Home 2>/dev/null
 sf data360 connection test -o myorg --name SalesforceDotCom_Home 2>/dev/null
+sf data360 connection create -o myorg -f examples/connections/heroku-postgres.json 2>/dev/null
 ```
+
+## Example payloads
+
+- [examples/connections/heroku-postgres.json](examples/connections/heroku-postgres.json)
+- [examples/connections/redshift.json](examples/connections/redshift.json)
 
 ## References
 

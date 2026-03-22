@@ -7,12 +7,12 @@ This file exists to make downstream maintenance easy without sacrificing sf-skil
 ### Skill concepts and phase model
 - Repo: `gthoppae/sf-data360-skills`
 - URL: https://github.com/gthoppae/sf-data360-skills
-- Last reviewed commit for this integration: `523c77aab9983039c10a6202967d47c039a2e2b7`
+- Last reviewed commit for this integration: `9cedd9891c6fb763c3161b59d52619b6df7d1e4e`
 
 ### CLI runtime and command surface
 - Repo: `gthoppae/sf-cli-plugin-data360`
 - URL: https://github.com/gthoppae/sf-cli-plugin-data360
-- Last reviewed commit for this integration: `cdd83cdac4aa23c4c000f8c2bb16e69e12078469`
+- Last reviewed commit for this integration: `7778fc68d87dfd91fda050ba138e3c3482da848a`
 
 ## What sf-skills intentionally keeps
 
@@ -20,6 +20,7 @@ This file exists to make downstream maintenance easy without sacrificing sf-skil
 - the community `sf data360` command surface as the runtime
 - high-signal gotchas such as connector type requirements, `--all` pagination, API-version quirks, and SQL-vs-SOQL distinctions
 - deterministic JSON definition file patterns
+- new upstream command-surface additions such as hybrid search when they are broadly useful
 
 ## What sf-skills intentionally changes
 
@@ -28,6 +29,8 @@ This file exists to make downstream maintenance easy without sacrificing sf-skil
 - keeps the plugin external instead of vendoring or forking it
 - adds deterministic helper scripts and generic templates suited to sf-skills users
 - avoids workshop-specific org names, payloads, and repo-coupled installation assumptions
+- selectively distills public-safe example payloads and gotchas instead of copying workshop flows blindly
+- does not automatically vendor UI-automation helpers unless they are validated and worth the maintenance cost
 
 ## Maintenance contract
 
@@ -48,6 +51,9 @@ Instead:
 - known issues and bug-fix notes
 - live-tested command set
 - any new commands affecting Connect / Prepare / Harmonize / Segment / Act / Retrieve boundaries
+- connector-specific payload examples worth distilling into generic repo-safe examples
+- search-index / hybrid-search guidance and any command-surface changes around hybrid scoring or prefilter behavior
+- UI-only gaps where upstream introduces browser automation; validate before importing
 
 ## Cross-skill boundary reminders
 

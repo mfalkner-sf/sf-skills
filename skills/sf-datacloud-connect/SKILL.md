@@ -54,6 +54,7 @@ Ask for or infer:
 - Suppress linked-plugin warning noise with `2>/dev/null` for standard usage.
 - Remember that `connection list` requires `--connector-type`.
 - Discover existing connector types from streams first when the org is unfamiliar.
+- API-based external connector creation is supported, but payloads are connector-specific.
 - Do not use query-plane errors from other phases to declare connect work unavailable.
 
 ---
@@ -90,6 +91,16 @@ sf data360 connection test -o <org> --name <connection> 2>/dev/null
 sf data360 connection create -o <org> -f connection.json 2>/dev/null
 ```
 
+### 6. Start from curated example payloads for external connectors
+Use the phase-owned examples before inventing a payload from scratch:
+- `examples/connections/heroku-postgres.json`
+- `examples/connections/redshift.json`
+
+To discover payload fields for a connector type not covered by those examples, create one in the UI and inspect it:
+```bash
+sf api request rest "/services/data/v66.0/ssot/connections/<id>" -o <org>
+```
+
 ---
 
 ## High-Signal Gotchas
@@ -99,6 +110,7 @@ sf data360 connection create -o <org> -f connection.json 2>/dev/null
 - Some external connector credential setup still depends on UI-side configuration.
 - Use connection metadata inspection before guessing available source objects or databases.
 - An empty connection list usually means "enabled but not configured yet", not "feature disabled".
+- Heroku Postgres and Redshift payloads use different credential / parameter names. Reuse the curated examples instead of guessing.
 
 ---
 
@@ -118,6 +130,8 @@ Next step: <prepare phase or connector follow-up>
 ## References
 
 - [README.md](README.md)
+- [examples/connections/heroku-postgres.json](examples/connections/heroku-postgres.json)
+- [examples/connections/redshift.json](examples/connections/redshift.json)
 - [../sf-datacloud/references/plugin-setup.md](../sf-datacloud/references/plugin-setup.md)
 - [../sf-datacloud/references/feature-readiness.md](../sf-datacloud/references/feature-readiness.md)
 - [../sf-datacloud/UPSTREAM.md](../sf-datacloud/UPSTREAM.md)

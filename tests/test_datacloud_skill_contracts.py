@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from tests.datacloud_test_utils import (
     DATACLOUD_SKILLS,
     EXPECTED_COMMANDS,
     EXPECTED_FRONTMATTER_LINES,
     EXPECTED_HEADINGS,
     PHASE_SKILLS,
+    ROOT,
     skill_text,
     split_frontmatter,
 )
@@ -93,3 +97,18 @@ def test_datacloud_skills_reference_shared_readiness_helpers() -> None:
         else:
             assert "diagnose-org.mjs" in body, f"{skill} should point to the shared readiness classifier"
             assert "feature-readiness.md" in body, f"{skill} should reference feature-readiness guidance"
+
+
+
+def test_datacloud_examples_exist_for_connection_and_search_index_workflows() -> None:
+    expected_files = [
+        ROOT / "skills/sf-datacloud-connect/examples/connections/heroku-postgres.json",
+        ROOT / "skills/sf-datacloud-connect/examples/connections/redshift.json",
+        ROOT / "skills/sf-datacloud-retrieve/examples/search-indexes/hybrid-structured.json",
+        ROOT / "skills/sf-datacloud-retrieve/examples/search-indexes/vector-knowledge.json",
+    ]
+    for path in expected_files:
+        assert path.exists(), f"Expected example file to exist: {path.relative_to(ROOT)}"
+        content = path.read_text().strip()
+        assert content, f"Example file should not be empty: {path.relative_to(ROOT)}"
+        json.loads(content)

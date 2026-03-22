@@ -139,6 +139,9 @@ EXPECTED_COMMANDS = {
         "sf data360 connection get",
         "sf data360 connection objects",
         "sf data360 connection test",
+        "sf data360 connection create",
+        "examples/connections/heroku-postgres.json",
+        "examples/connections/redshift.json",
     ],
     "sf-datacloud-prepare": [
         "sf data360 data-stream list",
@@ -146,6 +149,9 @@ EXPECTED_COMMANDS = {
         "sf data360 data-stream create-from-object",
         "sf data360 data-stream create",
         "sf data360 dlo get",
+        "Profile",
+        "Engagement",
+        "Other",
     ],
     "sf-datacloud-harmonize": [
         "sf data360 dmo list --all",
@@ -175,6 +181,9 @@ EXPECTED_COMMANDS = {
         "sf data360 query describe",
         "sf data360 search-index list",
         "sf data360 query vector",
+        "sf data360 query hybrid",
+        "examples/search-indexes/hybrid-structured.json",
+        "examples/search-indexes/vector-knowledge.json",
     ],
 }
 
@@ -222,17 +231,18 @@ CLI_HELP_COMMANDS = [
     ["sf", "data360", "query", "sqlv2", "--help"],
     ["sf", "data360", "query", "async-create", "--help"],
     ["sf", "data360", "query", "vector", "--help"],
+    ["sf", "data360", "query", "hybrid", "--help"],
     ["sf", "data360", "search-index", "list", "--help"],
 ]
 
 PROMPT_FIXTURES = {
     "sf-datacloud": "Set up a Data Cloud pipeline from CRM ingestion to unified profiles and troubleshoot it across phases.",
-    "sf-datacloud-connect": "Browse connection objects and test a Snowflake Data Cloud connection.",
-    "sf-datacloud-prepare": "Create a Data Cloud data stream from an object and inspect the DLO.",
+    "sf-datacloud-connect": "Browse connection objects and create a Heroku Postgres Data Cloud connection from a JSON definition.",
+    "sf-datacloud-prepare": "Create a Data Cloud data stream from an object, classify it as Profile or Engagement, and inspect the DLO.",
     "sf-datacloud-harmonize": "Map to canonical, create identity resolution, and inspect unified profiles.",
     "sf-datacloud-segment": "Publish a segment, count segment members, and run a calculated insight.",
     "sf-datacloud-act": "List activation targets and create a data action for downstream delivery.",
-    "sf-datacloud-retrieve": "Run a Data Cloud query, describe a Data Cloud table, and inspect a search index.",
+    "sf-datacloud-retrieve": "Run a hybrid search with a prefilter, describe a Data Cloud table, and inspect a search index.",
 }
 
 ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")

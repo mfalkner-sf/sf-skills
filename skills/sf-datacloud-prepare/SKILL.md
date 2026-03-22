@@ -53,6 +53,7 @@ Ask for or infer:
 - Prefer inspecting existing streams and DLOs before creating new ingestion assets.
 - Suppress linked-plugin warning noise with `2>/dev/null` for normal usage.
 - Treat DLO naming and field naming as Data Cloud-specific, not CRM-native.
+- Confirm whether each dataset should be treated as `Profile`, `Engagement`, or `Other` before creating the stream.
 - Hand off to Harmonize only after ingestion assets are clearly healthy.
 
 ---
@@ -70,19 +71,30 @@ sf data360 data-stream list -o <org> 2>/dev/null
 sf data360 dlo list -o <org> 2>/dev/null
 ```
 
-### 3. Create or inspect streams intentionally
+### 3. Confirm the stream category before creation
+Use these rules when suggesting categories:
+
+| Category | Use for | Typical requirement |
+|---|---|---|
+| `Profile` | person/entity records | primary key |
+| `Engagement` | time-based events or interactions | primary key + event time field |
+| `Other` | reference/configuration/supporting datasets | primary key |
+
+When the source is ambiguous, ask the user explicitly whether the dataset should be treated as `Profile`, `Engagement`, or `Other`.
+
+### 4. Create or inspect streams intentionally
 ```bash
 sf data360 data-stream get -o <org> --name <stream> 2>/dev/null
 sf data360 data-stream create-from-object -o <org> --object Contact --connection SalesforceDotCom_Home 2>/dev/null
 sf data360 data-stream create -o <org> -f stream.json 2>/dev/null
 ```
 
-### 4. Check DLO shape
+### 5. Check DLO shape
 ```bash
 sf data360 dlo get -o <org> --name Contact_Home__dll 2>/dev/null
 ```
 
-### 5. Only then move into harmonization
+### 6. Only then move into harmonization
 Once the stream and DLO are healthy, hand off to [sf-datacloud-harmonize](../sf-datacloud-harmonize/SKILL.md).
 
 ---
@@ -90,6 +102,7 @@ Once the stream and DLO are healthy, hand off to [sf-datacloud-harmonize](../sf-
 ## High-Signal Gotchas
 
 - CRM-backed stream behavior is not the same as fully custom connector-framework ingestion.
+- Some external database connectors can be created via API while stream creation still requires UI flow or org-specific browser automation. Do not promise a pure CLI stream-creation path for every connector type.
 - Stream deletion can also delete the associated DLO unless the delete mode says otherwise.
 - DLO field naming differs from CRM field naming.
 - Query DLO record counts with Data Cloud SQL instead of assuming list output is sufficient.

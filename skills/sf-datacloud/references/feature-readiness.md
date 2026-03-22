@@ -117,8 +117,18 @@ Once the org is properly provisioned, many workflows are programmatic through `s
 - segment and calculated insight lifecycle operations
 - activation target and data action target operations
 - search-index lifecycle operations
+- hybrid search and related retrieve-plane workflows on newer runtime versions
 
 Exact coverage still depends on org entitlements and the user's permissions.
+
+## Known partial-automation gap
+
+Some external database connectors can be created via API while the corresponding data-stream creation flow still requires UI steps or org-specific browser automation.
+
+Practical guidance:
+- treat connection creation and stream creation as separate capability checks
+- do not assume a successful external connection create call means `data-stream create` will work for that connector
+- if the org relies on that path, guide the user toward manual UI creation or a locally validated Playwright/browser automation helper rather than promising a generic CLI-only workflow
 
 ## User-facing guidance model
 

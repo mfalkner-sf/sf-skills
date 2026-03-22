@@ -17,7 +17,7 @@ metadata:
 
 # sf-datacloud-retrieve: Data Cloud Retrieve Phase
 
-Use this skill when the user needs **query, search, and metadata introspection** for Data Cloud: sync SQL, paginated SQL, async query workflows, table describe, vector search, or search index operations.
+Use this skill when the user needs **query, search, and metadata introspection** for Data Cloud: sync SQL, paginated SQL, async query workflows, table describe, vector search, hybrid search, or search index operations.
 
 ## When This Skill Owns the Task
 
@@ -51,7 +51,7 @@ Ask for or infer:
 - Run the shared readiness classifier before relying on query/search surfaces: `node ~/.claude/skills/sf-datacloud/scripts/diagnose-org.mjs -o <org> --phase retrieve --json`.
 - Use describe before guessing columns.
 - Prefer `sqlv2` or async query flows for larger result sets.
-- Use vector search only when the search index lifecycle is healthy.
+- Use vector search or hybrid search only when the search index lifecycle is healthy.
 - Keep STDM/parquet/session-tracing workflows out of this skill family.
 
 ---
@@ -77,11 +77,18 @@ sf data360 query async-create -o <org> --sql 'SELECT * FROM "ssot__Individual__d
 sf data360 query describe -o <org> --table ssot__Individual__dlm 2>/dev/null
 ```
 
-### 4. Use vector search only when an index exists
+### 4. Use vector or hybrid search only when an index exists
 ```bash
 sf data360 search-index list -o <org> 2>/dev/null
 sf data360 query vector -o <org> --index Knowledge_Index --query "reset password" --limit 5 2>/dev/null
+sf data360 query hybrid -o <org> --index Knowledge_Index --query "reset password" --limit 5 2>/dev/null
+sf data360 query hybrid -o <org> --index Insurance_Index --query "weather damage coverage" --prefilter "Type_of_Insurance__c='Home'" --limit 10 2>/dev/null
 ```
+
+### 5. Reuse curated search-index examples when creating indexes
+Use the phase-owned examples instead of inventing JSON from scratch:
+- `examples/search-indexes/vector-knowledge.json`
+- `examples/search-indexes/hybrid-structured.json`
 
 ---
 
@@ -91,7 +98,9 @@ sf data360 query vector -o <org> --index Knowledge_Index --query "reset password
 - Table names should be double-quoted in SQL.
 - `sqlv2` is better than ad hoc OFFSET paging for medium result sets.
 - async query is preferable for large results.
-- search-index operations and vector queries depend on the index lifecycle being healthy.
+- search-index operations and vector/hybrid queries depend on the index lifecycle being healthy.
+- Hybrid search can use `--prefilter`, but only on fields configured as prefilter-capable when the search index was created.
+- HNSW index parameters are typically read-only on create; leave `userValues: []` unless the platform explicitly documents otherwise.
 - `query describe` is not a universal tenant probe; only run it with a known DMO or DLO table after broader readiness has been confirmed.
 
 ---
@@ -112,6 +121,8 @@ Next step: <segment / harmonize / follow-up>
 ## References
 
 - [README.md](README.md)
+- [examples/search-indexes/vector-knowledge.json](examples/search-indexes/vector-knowledge.json)
+- [examples/search-indexes/hybrid-structured.json](examples/search-indexes/hybrid-structured.json)
 - [../sf-datacloud/assets/definitions/search-index.template.json](../sf-datacloud/assets/definitions/search-index.template.json)
 - [../sf-datacloud/references/plugin-setup.md](../sf-datacloud/references/plugin-setup.md)
 - [../sf-datacloud/references/feature-readiness.md](../sf-datacloud/references/feature-readiness.md)

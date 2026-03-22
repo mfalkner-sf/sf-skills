@@ -519,6 +519,8 @@
         "connector type",
         "salesforcedotcom connector",
         "redshift connector",
+        "heroku postgres connector",
+        "herokupostgres connector",
         "snowflake connector",
         "bigquery connector"
       ],
@@ -528,9 +530,14 @@
         "list.*data.*cloud.*connections",
         "inspect.*connector",
         "browse.*connection.*objects",
-        "browse.*connection.*databases"
+        "browse.*connection.*databases",
+        "create.*heroku.*connection",
+        "create.*redshift.*connection"
       ],
-      "filePatterns": [],
+      "filePatterns": [
+        ".*connection.*\\.json$",
+        ".*examples/connections/.*\\.json$"
+      ],
       "priority": "medium",
       "description": "Data Cloud connections, connectors, and source discovery",
       "triggerWhen": "user manages Data Cloud connections, connectors, source metadata, or tests a connection",
@@ -652,6 +659,9 @@
         "data cloud sql",
         "ssot sql",
         "vector search",
+        "hybrid search",
+        "query hybrid",
+        "prefilter",
         "search index",
         "async query",
         "query describe",
@@ -663,6 +673,8 @@
         "describe.*data.*cloud.*table",
         "create.*search.*index",
         "troubleshoot.*vector.*search",
+        "troubleshoot.*hybrid.*search",
+        "run.*hybrid.*search",
         "run.*async.*query",
         "inspect.*search.*index"
       ],
@@ -670,8 +682,8 @@
         ".*search-index.*\\.json$"
       ],
       "priority": "high",
-      "description": "Data Cloud SQL, async query, search-index, vector-search, and metadata introspection workflows",
-      "triggerWhen": "user runs Data Cloud SQL, describe, async queries, vector search, search-index workflows, or metadata introspection",
+      "description": "Data Cloud SQL, async query, search-index, vector-search, hybrid-search, and metadata introspection workflows",
+      "triggerWhen": "user runs Data Cloud SQL, describe, async queries, vector search, hybrid search, search-index workflows, or metadata introspection",
       "doNotTriggerWhen": "the task is CRM SOQL-only, segment design, or STDM/session tracing/parquet analysis"
     },
     "sf-docs": {
