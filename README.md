@@ -142,9 +142,9 @@ python3 ~/.claude/sf-skills-install.py --profile delete old
 │   ├── sf-apex/SKILL.md
 │   ├── sf-flow/SKILL.md
 │   └── ... (30 more)
-├── agents/                    # 7 FDE + PS agents
-│   ├── fde-strategist.md
-│   ├── fde-engineer.md
+├── agents/                    # 7 Agentforce + Next.js agents
+│   ├── agentforce-orchestrator.md
+│   ├── agentforce-salesforce-developer.md
 │   └── ... (5 more)
 ├── hooks/                     # Shared hook system and registry
 │   ├── scripts/
@@ -290,40 +290,39 @@ Hooks provide **advisory feedback** — they inform but don't block operations.
 
 ## 🤖 Agent Team
 
-Seven specialized Claude Code agents for Salesforce implementations, installed to `~/.claude/agents/`.
+Seven specialized Claude Code agents for Agentforce + Next.js development, installed to `~/.claude/agents/`.
 
-### FDE Team (Agent-Focused)
+> **Fork note:** This agent team replaces the original FDE/PS agents from [Jaganpro/sf-skills](https://github.com/Jaganpro/sf-skills). The upstream agents (fde-strategist, fde-engineer, fde-experience-specialist, fde-qa-engineer, fde-release-engineer, ps-technical-architect, ps-solution-architect) are available in the original repo.
 
-| Agent | Role | Mode | Key Skills |
-|-------|------|------|------------|
-| **fde-strategist** | Orchestrator — plans, researches, delegates | `plan` | sf-ai-agentforce, sf-diagram-mermaid |
-| **fde-engineer** | Agent config, metadata, Apex, Agent Scripts | `acceptEdits` | sf-ai-agentforce, sf-ai-agentscript |
-| **fde-experience-specialist** | Conversation design, persona, UX, LWC | `acceptEdits` | sf-ai-agentforce-persona, sf-lwc |
+### Orchestration
 
-### Cross-Cutting (Serve Both Teams)
+| Agent | Role | Key Capabilities |
+|-------|------|-----------------|
+| **agentforce-orchestrator** | Project orchestrator — coordinates the full 7-agent team | Task routing, wizard flow coordination, cross-agent delegation |
 
-| Agent | Role | Mode | Key Skills |
-|-------|------|------|------------|
-| **fde-qa-engineer** | Testing (agent + platform), debug, observability | `acceptEdits` | sf-testing, sf-ai-agentforce-testing |
-| **fde-release-engineer** | Deployment, Connected Apps, CI/CD | `acceptEdits` | sf-deploy, sf-connected-apps |
+### Agentforce Specialists
 
-### PS Team (Platform Infrastructure)
+| Agent | Role | Key Capabilities |
+|-------|------|-----------------|
+| **agentforce-salesforce-developer** | Salesforce metadata, Apex, Agent Script DSL | Compiler logic, Zustand stores, TypeScript type system |
+| **agentforce-qa-engineer** | Wizard testing, compiler unit tests, output verification | Wizard flow validation, output format verification |
+| **agentforce-uiux-designer** | Wizard UX, multi-step wizard patterns | Tailwind CSS 4, accessible form design |
+| **agentforce-content-writer** | Wizard microcopy, DSL documentation | Agentforce terminology, wizard content |
 
-| Agent | Role | Mode | Key Skills |
-|-------|------|------|------------|
-| **ps-technical-architect** | Apex, integrations, data, LWC, performance | `acceptEdits` | sf-apex, sf-integration, sf-lwc + 5 more |
-| **ps-solution-architect** | Metadata, Flows, permissions, diagrams | `acceptEdits` | sf-metadata, sf-flow, sf-permissions + 2 more |
+### Next.js Developers
+
+| Agent | Role | Key Capabilities |
+|-------|------|-----------------|
+| **nextjs-frontend-developer** | Next.js 16 + React 19, Zustand, React Hook Form | Modern React patterns, client-side state |
+| **nextjs-backend-developer** | Next.js backend, compiler logic, TypeScript | Zustand stores, type system patterns |
 
 ### Hierarchy
 
 ```
-fde-strategist (orchestrator — plans, researches, delegates)
-├── FDE: fde-engineer, fde-experience-specialist
-├── QA/Release: fde-qa-engineer, fde-release-engineer
-└── PS: ps-technical-architect, ps-solution-architect
+agentforce-orchestrator (coordinates all agents)
+├── Agentforce: salesforce-developer, qa-engineer, uiux-designer, content-writer
+└── Next.js: frontend-developer, backend-developer
 ```
-
-The strategist spawns up to 4 concurrent workers via `Task()`. PS agents have `WebSearch` and `WebFetch` for self-directed Salesforce docs lookup.
 
 <a id="skill-architecture"></a>
 
