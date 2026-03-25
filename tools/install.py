@@ -1696,18 +1696,18 @@ def get_hooks_config() -> Dict[str, Any]:
                     {
                         "type": "agent",
                         "prompt": (
-                            "A Salesforce CLI command just completed. If the command was "
-                            "'sf apex get log' or 'sf apex tail log', analyze the debug log output for:\n\n"
+                            "Hook input: $ARGUMENTS\n\n"
+                            "If the command above was 'sf apex get log' or 'sf apex tail log', "
+                            "analyze the debug log output for:\n"
                             "1. EXCEPTION_THROWN / FATAL_ERROR — what type, what line, what message\n"
                             "2. LIMIT_USAGE — any limits above 80% (SOQL_QUERIES, DML_STATEMENTS, CPU_TIME, HEAP_SIZE)\n"
                             "3. SOQL_EXECUTE_BEGIN inside loops — governor limit risk\n"
                             "4. DML_BEGIN inside loops — governor limit risk\n"
-                            "5. Total execution time from EXECUTION_FINISHED\n\n"
-                            "Provide a structured summary: Critical Issues, Warnings, Governor Limit Usage "
-                            "(% of each limit), and Recommended Fixes. Keep the summary under 20 lines.\n\n"
-                            "If the command was NOT a debug log command, respond with nothing."
+                            "5. Total execution time from EXECUTION_FINISHED\n"
+                            "Provide a structured summary under 20 lines.\n\n"
+                            "If the command was NOT a debug log command, respond with just: allow"
                         ),
-                        "timeout": 30
+                        "timeout": 60
                     }
                 ],
             }
